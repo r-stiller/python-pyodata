@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<edmx:Edmx xmlns:edmx="http://schemas.microsoft.com/ado/2007/06/edmx"
+           xmlns:m="http://schemas.microsoft.com/ado/2007/08/dataservices/metadata"
+           Version="1.0">
+  <edmx:DataServices m:DataServiceVersion="3.0">
+    <Schema xmlns="http://schemas.microsoft.com/ado/2009/11/edm"
+            Namespace="V3Demo.External"
+            Alias="External">
+      <ComplexType Name="TagInfo">
+        <Property Name="Code" Type="Edm.String" Nullable="false" />
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://schemas.microsoft.com/ado/2009/11/edm"
+            Namespace="V3Demo.Model"
+            Alias="Self">
+      <Using Namespace="V3Demo.External" Alias="Ext" />
+
+      <ComplexType Name="LocalInfo">
+        <Property Name="Code" Type="Edm.String" Nullable="false" />
+      </ComplexType>
+
+      <EntityType Name="Document" OpenType="true" HasStream="true">
+        <Key>
+          <PropertyRef Name="Id" />
+        </Key>
+        <Property Name="Id" Type="Edm.Int32" Nullable="false" />
+        <Property Name="Title" Type="Edm.String" Nullable="false" />
+        <Property Name="LocalInfo" Type="Self.LocalInfo" Nullable="true" />
+        <Property Name="ExternalInfo" Type="Ext.TagInfo" Nullable="true" />
+        <Property Name="Location" Type="Edm.GeographyPoint" Nullable="true" />
+        <Property Name="Thumbnail" Type="Edm.Stream" Nullable="true" />
+      </EntityType>
+
+      <EntityContainer Name="V3DemoContainer" m:IsDefaultEntityContainer="true">
+        <EntitySet Name="Documents" EntityType="V3Demo.Model.Document" />
+
+        <FunctionImport Name="SearchDocuments"
+                        ReturnType="Collection(V3Demo.Model.Document)"
+                        EntitySet="Documents"
+                        IsBindable="false"
+                        IsComposable="true"
+                        m:HttpMethod="GET">
+          <Parameter Name="Query" Type="Edm.String" Mode="In" Nullable="false" />
+          <Parameter Name="Limit" Type="Edm.Int32" Mode="In" Nullable="false" />
+        </FunctionImport>
+
+        <FunctionImport Name="GetPeerDocument"
+                        ReturnType="V3Demo.Model.Document"
+                        IsBindable="true"
+                        IsSideEffecting="false"
+                        IsComposable="true"
+                        EntitySetPath="bindingParameter"
+                        m:HttpMethod="GET">
+          <Parameter Name="bindingParameter" Type="V3Demo.Model.Document" Mode="In" Nullable="false" />
+          <Parameter Name="Mode" Type="Edm.String" Mode="In" Nullable="false" />
+        </FunctionImport>
+
+        <FunctionImport Name="Approve"
+                        ReturnType="Edm.Boolean"
+                        IsBindable="true"
+                        IsSideEffecting="true"
+                        EntitySetPath="bindingParameter"
+                        m:HttpMethod="POST">
+          <Parameter Name="bindingParameter" Type="V3Demo.Model.Document" Mode="In" Nullable="false" />
+          <Parameter Name="Comment" Type="Edm.String" Mode="In" Nullable="true" />
+        </FunctionImport>
+      </EntityContainer>
+    </Schema>
+  </edmx:DataServices>
+</edmx:Edmx>
