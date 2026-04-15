@@ -25,6 +25,28 @@ HTTP_CODE_OK = 200
 HTTP_CODE_CREATED = 201
 
 
+class _ODataRequestPolicy:
+    """Protocol-specific request/response behavior shared by request builders."""
+
+    def json_get_headers(self):
+        return {'Accept': 'application/json'}
+
+    def json_write_headers(self, include_x_requested_with=False):
+        headers = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+        }
+        if include_x_requested_with:
+            headers['X-Requested-With'] = 'X'
+        return headers
+
+    def extract_json_payload(self, response):
+        return self.extract_json_payload_from_content(response.json())
+
+    def extract_json_payload_from_content(self, content):
+        return content['d']
+
+
 def urljoin(*path):
     """Joins the passed string parts into a one string url"""
 
@@ -232,11 +254,12 @@ class EntityKey:
 class ODataHttpRequest:
     """Deferred HTTP Request"""
 
-    def __init__(self, url, connection, handler, headers=None):
+    def __init__(self, url, connection, handler, headers=None, request_policy=None):
         self._connection = connection
         self._url = url
         self._handler = handler
         self._headers = headers or dict()
+        self._request_policy = request_policy or _ODataRequestPolicy()
         self._logger = logging.getLogger(LOGGER_NAME)
         self._customs = {}  # string -> string hash
         self._next_url = None
@@ -373,7 +396,7 @@ class EntityGetRequest(ODataHttpRequest):
 
     def __init__(self, handler, entity_key, entity_set_proxy, encode_path=True):
         super(EntityGetRequest, self).__init__(entity_set_proxy.service.url, entity_set_proxy.service.connection,
-                                               handler)
+                                               handler, request_policy=entity_set_proxy.service.request_policy)
         self._logger = logging.getLogger(LOGGER_NAME)
         self._entity_key = entity_key
         self._entity_set_proxy = entity_set_proxy
@@ -409,7 +432,7 @@ class EntityGetRequest(ODataHttpRequest):
         return self._entity_set_proxy.last_segment + self._entity_key.to_key_string()
 
     def get_default_headers(self):
-        return {'Accept': 'application/json'}
+        return self._request_policy.json_get_headers()
 
     def get_query_params(self):
         qparams = super(EntityGetRequest, self).get_query_params()
@@ -440,7 +463,8 @@ class EntityGetRequest(ODataHttpRequest):
         return ODataHttpRequest(
             urljoin(self._url, self.get_path(), '/$value'),
             connection,
-            stream_handler)
+            stream_handler,
+            request_policy=self._request_policy)
 
     def get_encode_path(self):
         """Getter for encode path flag"""
@@ -465,8 +489,8 @@ class EntityCreateRequest(ODataHttpRequest):
        Call execute() to send the create-request to the OData service
        and get the newly created entity."""
 
-    def __init__(self, url, connection, handler, entity_set, last_segment=None):
-        super(EntityCreateRequest, self).__init__(url, connection, handler)
+    def __init__(self, url, connection, handler, entity_set, last_segment=None, request_policy=None):
+        super(EntityCreateRequest, self).__init__(url, connection, handler, request_policy=request_policy)
         self._logger = logging.getLogger(LOGGER_NAME)
         self._entity_set = entity_set
         self._entity_type = entity_set.entity_type
@@ -510,7 +534,7 @@ class EntityCreateRequest(ODataHttpRequest):
         return json.dumps(self._get_body())
 
     def get_default_headers(self):
-        return {'Accept': 'application/json', 'Content-Type': 'application/json', 'X-Requested-With': 'X'}
+        return self._request_policy.json_write_headers(include_x_requested_with=True)
 
     @staticmethod
     def _build_values(entity_type, entity):
@@ -585,8 +609,9 @@ class EntityModifyRequest(ODataHttpRequest):
     ALLOWED_HTTP_METHODS = ['PATCH', 'PUT', 'MERGE']
 
     # pylint: disable=too-many-arguments
-    def __init__(self, url, connection, handler, entity_set, entity_key, method="PATCH", encode_path=True):
-        super(EntityModifyRequest, self).__init__(url, connection, handler)
+    def __init__(self, url, connection, handler, entity_set, entity_key,
+                 method="PATCH", encode_path=True, request_policy=None):
+        super(EntityModifyRequest, self).__init__(url, connection, handler, request_policy=request_policy)
         self._logger = logging.getLogger(LOGGER_NAME)
         self._entity_set = entity_set
         self._entity_type = entity_set.entity_type
@@ -622,7 +647,7 @@ class EntityModifyRequest(ODataHttpRequest):
         return json.dumps(body)
 
     def get_default_headers(self):
-        return {'Accept': 'application/json', 'Content-Type': 'application/json'}
+        return self._request_policy.json_write_headers()
 
     def get_encode_path(self):
         """Getter for encode path flag"""
@@ -650,8 +675,8 @@ class QueryRequest(ODataHttpRequest):
 
     # pylint: disable=too-many-instance-attributes
 
-    def __init__(self, url, connection, handler, last_segment):
-        super(QueryRequest, self).__init__(url, connection, handler)
+    def __init__(self, url, connection, handler, last_segment, request_policy=None):
+        super(QueryRequest, self).__init__(url, connection, handler, request_policy=request_policy)
 
         self._logger = logging.getLogger(LOGGER_NAME)
         self._count = None
@@ -730,9 +755,7 @@ class QueryRequest(ODataHttpRequest):
         if self._count:
             return {}
 
-        return {
-            'Accept': 'application/json',
-        }
+        return self._request_policy.json_get_headers()
 
     def get_query_params(self):
         if self._next_url:
@@ -767,8 +790,9 @@ class QueryRequest(ODataHttpRequest):
 class FunctionRequest(QueryRequest):
     """Function import request (Service call)"""
 
-    def __init__(self, url, connection, handler, function_import):
-        super(FunctionRequest, self).__init__(url, connection, handler, function_import.name)
+    def __init__(self, url, connection, handler, function_import, request_policy=None):
+        super(FunctionRequest, self).__init__(
+            url, connection, handler, function_import.name, request_policy=request_policy)
 
         self._function_import = function_import
 
@@ -793,9 +817,7 @@ class FunctionRequest(QueryRequest):
         return self._function_import.http_method
 
     def get_default_headers(self):
-        return {
-            'Accept': 'application/json'
-        }
+        return self._request_policy.json_get_headers()
 
 
 # pylint: disable=too-many-instance-attributes
@@ -964,7 +986,7 @@ class EntityProxy:
                 raise HttpError('HTTP GET for Entity {0} failed with status code {1}'
                                 .format(self._name, response.status_code), response)
 
-            entity = response.json()['d']
+            entity = parent._service.extract_json_payload(response)
 
             return NavEntityProxy(parent, nav_property, navigation_entity_set.entity_type, entity)
 
@@ -997,7 +1019,7 @@ class EntityProxy:
                 raise HttpError('HTTP GET for Attribute {0} of Entity {1} failed with status code {2}'
                                 .format(proprty.name, key, response.status_code), response)
 
-            data = response.json()['d']
+            data = self._service.extract_json_payload(response)
             return proprty.from_json(data[proprty.name])
 
         path = urljoin(self.get_path(), name)
@@ -1332,8 +1354,8 @@ class GetEntitySetFilterChainable:
 class GetEntitySetRequest(QueryRequest):
     """GET on EntitySet"""
 
-    def __init__(self, url, connection, handler, last_segment, entity_type, encode_path=True):
-        super(GetEntitySetRequest, self).__init__(url, connection, handler, last_segment)
+    def __init__(self, url, connection, handler, last_segment, entity_type, encode_path=True, request_policy=None):
+        super(GetEntitySetRequest, self).__init__(url, connection, handler, last_segment, request_policy=request_policy)
 
         self._entity_type = entity_type
         self._encode_path = encode_path
@@ -1474,7 +1496,7 @@ class EntitySetProxy:
                 raise HttpError('HTTP GET for Entity {0} failed with status code {1}'
                                 .format(self._name, response.status_code), response)
 
-            entity = response.json()['d']
+            entity = self._service.extract_json_payload(response)
 
             return NavEntityProxy(parent, nav_property, navigation_entity_set.entity_type, entity)
 
@@ -1502,7 +1524,7 @@ class EntitySetProxy:
                 raise HttpError('HTTP GET for Entity {0} failed with status code {1}'
                                 .format(self._name, response.status_code), response)
 
-            entity = response.json()['d']
+            entity = self._service.extract_json_payload(response)
             etag = response.headers.get('ETag', None)
 
             return EntityProxy(self._service, self._entity_set, self._entity_set.entity_type, entity, etag=etag)
@@ -1531,7 +1553,7 @@ class EntitySetProxy:
             if isinstance(content, int):
                 return content
 
-            entities = content['d']
+            entities = self._service.extract_json_payload_from_content(content)
             total_count = None
             next_url = None
 
@@ -1554,6 +1576,7 @@ class EntitySetProxy:
         entity_set_name = self._alias if self._alias is not None else self._entity_set.name
         return GetEntitySetRequest(self._service.url, self._service.connection, get_entities_handler,
                                    self._parent_last_segment + entity_set_name, self._entity_set.entity_type,
+                                   request_policy=self._service.request_policy,
                                    encode_path=encode_path)
 
     def create_entity(self, return_code=HTTP_CODE_CREATED):
@@ -1566,13 +1589,13 @@ class EntitySetProxy:
                 raise HttpError('HTTP POST for Entity Set {0} failed with status code {1}'
                                 .format(self._name, response.status_code), response)
 
-            entity_props = response.json()['d']
+            entity_props = self._service.extract_json_payload(response)
             etag = response.headers.get('ETag', None)
 
             return EntityProxy(self._service, self._entity_set, self._entity_set.entity_type, entity_props, etag=etag)
 
         return EntityCreateRequest(self._service.url, self._service.connection, create_entity_handler, self._entity_set,
-                                   self.last_segment)
+                                   self.last_segment, request_policy=self._service.request_policy)
 
     def update_entity(self, key=None, method=None, encode_path=True, **kwargs):
         """Updates an existing entity in the given entity-set."""
@@ -1595,7 +1618,8 @@ class EntitySetProxy:
             method = self._service.config['http']['update_method']
 
         return EntityModifyRequest(self._service.url, self._service.connection, update_entity_handler, self._entity_set,
-                                   entity_key, method=method, encode_path=encode_path)
+                                   entity_key, method=method, encode_path=encode_path,
+                                   request_policy=self._service.request_policy)
 
     def delete_entity(self, key: EntityKey = None, encode_path=True, **kwargs):
         """Delete the entity"""
@@ -1705,7 +1729,7 @@ class FunctionContainer:
                     'The Function Import %s has replied with HTTP Status Code %d instead of 200',
                     fimport.name, response.status_code)
 
-            response_data = response.json()['d']
+            response_data = self._service.extract_json_payload(response)
 
             # 1. if return types is "entity type", return instance of appropriate entity proxy
             if isinstance(fimport.return_type, model.EntityType):
@@ -1716,17 +1740,21 @@ class FunctionContainer:
             return response_data
 
         return FunctionRequest(self._service.url, self._service.connection,
-                               partial(function_import_handler, fimport), fimport)
+                               partial(function_import_handler, fimport), fimport,
+                               request_policy=self._service.request_policy)
 
 
 class Service:
     """OData service"""
+
+    REQUEST_POLICY_CLASS = _ODataRequestPolicy
 
     def __init__(self, url, schema, connection, config=None):
         self._url = url
         self._schema = schema
         self._connection = connection
         self._retain_null = config.retain_null if config else False
+        self._request_policy = self.REQUEST_POLICY_CLASS()
         self._entity_container = EntityContainer(self)
         self._function_container = FunctionContainer(self)
 
@@ -1774,6 +1802,18 @@ class Service:
 
         return self._config
 
+    @property
+    def request_policy(self):
+        """Request/response policy for the current OData protocol version."""
+
+        return self._request_policy
+
+    def extract_json_payload(self, response):
+        return self._request_policy.extract_json_payload(response)
+
+    def extract_json_payload_from_content(self, content):
+        return self._request_policy.extract_json_payload_from_content(content)
+
     def http_get(self, path, connection=None):
         """HTTP GET response for the passed path in the service"""
 
@@ -1804,7 +1844,8 @@ class Service:
             urljoin(self._url, path),
             conn,
             handler,
-            headers={'Accept': 'application/json'})
+            headers=self._request_policy.json_get_headers(),
+            request_policy=self._request_policy)
 
     def create_batch(self, batch_id=None):
         """Create instance of OData batch request"""

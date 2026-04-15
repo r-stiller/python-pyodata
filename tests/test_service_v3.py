@@ -5,6 +5,7 @@ import pytest
 import pyodata
 import pyodata.v2.service
 import pyodata.v3.service
+from pyodata.exceptions import PyODataException
 from pyodata.v3.model import Config, MetadataBuilder, ParserError, PolicyIgnore
 from tests.conftest import contents_of_fixtures_file
 
@@ -57,6 +58,23 @@ class _AsyncMetadataConnection:
         return _AsyncMetadataResponse(url, self.metadata)
 
 
+class _StaticResponseConnection:
+
+    def __init__(self, response):
+        self.response = response
+        self.requests = []
+
+    def request(self, method, url, headers=None, params=None, data=None):
+        self.requests.append({
+            'method': method,
+            'url': url,
+            'headers': headers,
+            'params': params,
+            'data': data,
+        })
+        return self.response
+
+
 @pytest.fixture
 def metadata_v3():
     """Minimal, realistic OData V3 metadata."""
@@ -80,6 +98,13 @@ def service_v3(schema_v3):
     """Direct service fixture used to describe future V3 request behavior."""
 
     return pyodata.v3.service.Service(URL_ROOT, schema_v3, DUMMY_CONNECTION)
+
+
+@pytest.fixture
+def service_v2_compat(schema_v3):
+    """V2 service using the same schema fixture to pin header differences to protocol version."""
+
+    return pyodata.v2.service.Service(URL_ROOT, schema_v3, DUMMY_CONNECTION)
 
 
 def test_client_exposes_odata_version_3():
@@ -137,14 +162,66 @@ async def test_create_async_client_with_fetched_metadata_odata_version_3(metadat
     assert connection.requested_urls == [f'{URL_ROOT}/$metadata']
 
 
-@pytest.mark.xfail(reason='V3 request headers are still hard-coded to V2 JSON defaults', strict=True)
 def test_v3_json_requests_use_verbose_json_and_max_data_service_version(service_v3):
-    request = service_v3.entity_sets.Documents.get_entity(1)
+    entity_request = service_v3.entity_sets.Documents.get_entity(1)
+    query_request = service_v3.entity_sets.Documents.get_entities()
+    function_request = service_v3.functions.SearchDocuments
 
-    assert request.get_headers() == {
+    expected_headers = {
         'Accept': 'application/json;odata=verbose',
         'MaxDataServiceVersion': '3.0',
     }
+
+    assert entity_request.get_headers() == expected_headers
+    assert query_request.get_headers() == expected_headers
+    assert function_request.get_headers() == expected_headers
+
+
+def test_v3_json_write_requests_use_verbose_json_headers(service_v3):
+    create_request = service_v3.entity_sets.Documents.create_entity()
+    update_request = service_v3.entity_sets.Documents.update_entity(1)
+
+    assert create_request.get_headers() == {
+        'Accept': 'application/json;odata=verbose',
+        'Content-Type': 'application/json;odata=verbose',
+        'MaxDataServiceVersion': '3.0',
+        'X-Requested-With': 'X',
+    }
+    assert update_request.get_headers() == {
+        'Accept': 'application/json;odata=verbose',
+        'Content-Type': 'application/json;odata=verbose',
+        'MaxDataServiceVersion': '3.0',
+    }
+
+
+def test_v2_json_request_headers_remain_unchanged(service_v2_compat):
+    entity_request = service_v2_compat.entity_sets.Documents.get_entity(1)
+    create_request = service_v2_compat.entity_sets.Documents.create_entity()
+
+    assert entity_request.get_headers() == {
+        'Accept': 'application/json',
+    }
+    assert create_request.get_headers() == {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'X-Requested-With': 'X',
+    }
+
+
+def test_v3_non_verbose_json_payload_fails_clearly(schema_v3):
+    connection = _StaticResponseConnection(pyodata.v2.service.ODataHttpResponse(
+        url=f'{URL_ROOT}/Documents(1)',
+        headers={'Content-type': 'application/json'},
+        status_code=200,
+        content=b'{"Id": 1, "Title": "Spec draft"}'))
+    service = pyodata.v3.service.Service(URL_ROOT, schema_v3, connection)
+
+    with pytest.raises(PyODataException) as exc_info:
+        service.entity_sets.Documents.get_entity(1, encode_path=False).execute()
+
+    assert str(exc_info.value) == (
+        'OData V3 currently supports Verbose JSON only; '
+        'expected a top-level "d" envelope in the response payload')
 
 
 @pytest.mark.xfail(reason='FunctionRequest still serializes parameters as V2 query-string options', strict=True)
