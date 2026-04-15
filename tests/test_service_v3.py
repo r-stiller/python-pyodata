@@ -4,12 +4,57 @@ import pytest
 
 import pyodata
 import pyodata.v2.service
-from pyodata.v2.model import Config, MetadataBuilder, ParserError, PolicyIgnore
+import pyodata.v3.service
+from pyodata.v3.model import Config, MetadataBuilder, ParserError, PolicyIgnore
 from tests.conftest import contents_of_fixtures_file
 
 
 URL_ROOT = 'http://odatapy.example.com'
 DUMMY_CONNECTION = object()
+
+
+class _StaticMetadataConnection:
+
+    def __init__(self, metadata):
+        self.metadata = metadata
+        self.requested_urls = []
+
+    def get(self, url):
+        self.requested_urls.append(url)
+        return pyodata.v2.service.ODataHttpResponse(
+            url=url,
+            headers={'content-type': 'application/xml'},
+            status_code=200,
+            content=self.metadata)
+
+
+class _AsyncMetadataResponse:
+
+    def __init__(self, url, metadata):
+        self.url = url
+        self.headers = {'content-type': 'application/xml'}
+        self.status = 200
+        self._metadata = metadata
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        return False
+
+    async def read(self):
+        return self._metadata
+
+
+class _AsyncMetadataConnection:
+
+    def __init__(self, metadata):
+        self.metadata = metadata
+        self.requested_urls = []
+
+    def get(self, url):
+        self.requested_urls.append(url)
+        return _AsyncMetadataResponse(url, self.metadata)
 
 
 @pytest.fixture
@@ -34,22 +79,62 @@ def schema_v3(metadata_v3):
 def service_v3(schema_v3):
     """Direct service fixture used to describe future V3 request behavior."""
 
-    return pyodata.v2.service.Service(URL_ROOT, schema_v3, DUMMY_CONNECTION)
+    return pyodata.v3.service.Service(URL_ROOT, schema_v3, DUMMY_CONNECTION)
+
+
+def test_client_exposes_odata_version_3():
+    assert pyodata.Client.ODATA_VERSION_3 == 3
 
 
 def test_v3_fixture_can_build_a_direct_service(service_v3):
     """The direct service fixture gives us a stable baseline for request-shape tests."""
 
+    assert isinstance(service_v3, pyodata.v3.service.Service)
     assert service_v3.schema.entity_set('Documents').name == 'Documents'
     assert service_v3.functions.SearchDocuments.get_method() == 'GET'
 
 
-@pytest.mark.xfail(reason='Client entrypoints reject odata_version=3 today', strict=True)
 def test_create_sync_client_with_odata_version_3(metadata_v3):
     service = pyodata.Client(URL_ROOT, DUMMY_CONNECTION, odata_version=3, metadata=metadata_v3)
 
-    assert isinstance(service, pyodata.v2.service.Service)
+    assert isinstance(service, pyodata.v3.service.Service)
     assert service.schema.entity_type('Document').name == 'Document'
+
+
+def test_create_sync_client_with_fetched_metadata_odata_version_3(metadata_v3):
+    connection = _StaticMetadataConnection(metadata_v3)
+
+    service = pyodata.Client(URL_ROOT, connection, odata_version=3)
+
+    assert isinstance(service, pyodata.v3.service.Service)
+    assert service.schema.entity_type('Document').name == 'Document'
+    assert connection.requested_urls == [f'{URL_ROOT}/$metadata']
+
+
+@pytest.mark.asyncio
+async def test_create_async_client_with_odata_version_3(metadata_v3):
+    connection = _AsyncMetadataConnection(metadata_v3)
+
+    service = await pyodata.Client.build_async_client(
+        URL_ROOT,
+        connection,
+        odata_version=3,
+        metadata=metadata_v3)
+
+    assert isinstance(service, pyodata.v3.service.Service)
+    assert service.schema.entity_type('Document').name == 'Document'
+    assert connection.requested_urls == []
+
+
+@pytest.mark.asyncio
+async def test_create_async_client_with_fetched_metadata_odata_version_3(metadata_v3):
+    connection = _AsyncMetadataConnection(metadata_v3)
+
+    service = await pyodata.Client.build_async_client(URL_ROOT, connection, odata_version=3)
+
+    assert isinstance(service, pyodata.v3.service.Service)
+    assert service.schema.entity_type('Document').name == 'Document'
+    assert connection.requested_urls == [f'{URL_ROOT}/$metadata']
 
 
 @pytest.mark.xfail(reason='V3 request headers are still hard-coded to V2 JSON defaults', strict=True)
@@ -97,7 +182,7 @@ def test_v3_bound_action_url_shape(service_v3):
 def test_v3_named_stream_access_api_shape(service_v3):
     request = service_v3.entity_sets.Documents.get_entity(1).named_stream('Thumbnail')
 
-    assert isinstance(request, pyodata.v2.service.ODataHttpRequest)
+    assert isinstance(request, pyodata.v3.service.ODataHttpRequest)
     assert request.get_path() == 'Documents(1)/Thumbnail'
 
 

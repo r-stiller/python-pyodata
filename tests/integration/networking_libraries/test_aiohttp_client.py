@@ -6,12 +6,21 @@ import aiohttp
 from aiohttp import web
 import pytest
 
+import pyodata
 import pyodata.v2.service
+import pyodata.v3.service
 from pyodata import Client
 from pyodata.exceptions import PyODataException, HttpError
 from pyodata.v2.model import ParserError, PolicyWarning, PolicyFatal, PolicyIgnore, Config
+from tests.conftest import contents_of_fixtures_file
 
 SERVICE_URL = ''
+
+
+@pytest.fixture
+def metadata_v3():
+    return contents_of_fixtures_file('metadata_v3.xml')
+
 
 @pytest.mark.asyncio
 async def test_invalid_odata_version():
@@ -34,6 +43,22 @@ async def test_create_client_for_local_metadata(metadata):
         assert service_client.schema.is_valid == True
 
         assert len(service_client.schema.entity_sets) != 0
+
+
+@pytest.mark.asyncio
+async def test_create_v3_client_for_local_metadata(metadata_v3):
+    """Check V3 async client creation for valid use case with local metadata."""
+
+    async with aiohttp.ClientSession() as client:
+        service_client = await Client.build_async_client(
+            SERVICE_URL,
+            client,
+            odata_version=Client.ODATA_VERSION_3,
+            metadata=metadata_v3)
+
+        assert isinstance(service_client, pyodata.v3.service.Service)
+        assert service_client.schema.entity_type('Document').name == 'Document'
+
 
 @pytest.mark.asyncio
 def generate_metadata_response(headers=None, body=None, status=200):
@@ -63,6 +88,21 @@ async def test_create_service_application(aiohttp_client, metadata, content_type
 
     assert isinstance(service_client, pyodata.v2.service.Service)
     assert service_client.schema.is_valid
+
+
+@pytest.mark.asyncio
+async def test_create_v3_service_application(aiohttp_client, metadata_v3):
+    """Check V3 async client creation when metadata is fetched over aiohttp."""
+
+    app = web.Application()
+    app.router.add_get('/$metadata',
+                       generate_metadata_response(headers={'content-type': 'application/xml'}, body=metadata_v3))
+    client = await aiohttp_client(app)
+
+    service_client = await Client.build_async_client(SERVICE_URL, client, odata_version=Client.ODATA_VERSION_3)
+
+    assert isinstance(service_client, pyodata.v3.service.Service)
+    assert service_client.schema.entity_type('Document').name == 'Document'
 
 
 @pytest.mark.asyncio

@@ -5,7 +5,7 @@ import io
 import pytest
 from lxml import etree
 
-from pyodata.v2.model import Config, MetadataBuilder, NullType, ParserError, PolicyIgnore
+from pyodata.v3.model import Config, MetadataBuilder, NullType, ParserError, PolicyIgnore
 from tests.conftest import contents_of_fixtures_file
 
 
