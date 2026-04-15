@@ -61,3 +61,11 @@ The User Guide
    usage/metadata.rst
    usage/advanced.rst
    usage/urls.rst
+
+Protocol References
+-------------------
+
+.. toctree::
+   :maxdepth: 1
+
+   protocol_references.rst
