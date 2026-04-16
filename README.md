@@ -12,6 +12,9 @@ This repository is a fork of the original
 [`SAP/python-pyodata`](https://github.com/SAP/python-pyodata) project and
 continues to distribute the code under the Apache License, Version 2.0.
 
+The current fork repository is
+[`r-stiller/python-pyodata`](https://github.com/r-stiller/python-pyodata).
+
 The original upstream attribution and notice are retained in [LICENSE](LICENSE)
 and [NOTICE](NOTICE). This fork contains additional modifications relative to
 upstream.
@@ -40,7 +43,7 @@ NON-INFRINGEMENT.
 Install and update using pip:
 
 ```bash
-pip install -U pyodata
+python -m pip install -U "git+https://github.com/r-stiller/python-pyodata.git"
 ```
 
 ## Configuration
@@ -66,7 +69,8 @@ There are no known issues at this time.
 
 ## How to obtain support
 
-For this fork, use the fork's own issue tracker and release process.
+For this fork, use the fork's own issue tracker and release process at
+[`r-stiller/python-pyodata`](https://github.com/r-stiller/python-pyodata/issues).
 Upstream support and issue triage belong to the original
 [`SAP/python-pyodata`](https://github.com/SAP/python-pyodata) project.
 

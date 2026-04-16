@@ -29,7 +29,7 @@ setup(
     name="pyodata",
     version=_read('VERSION').strip(),
     license="Apache License Version 2.0",
-    url="https://github.com/SAP/python-pyodata",
+    url="https://github.com/r-stiller/python-pyodata",
     author="Jakub Filak, Michal Nezerka, Patrik Petrik, Petr Hanak, Rene Stiller",
     author_email="jakub.filak@sap.com, michal.nezerka@sap.com, patrik.petrik@sap.com, petr.hanak@sap.com",
     description="Fork of SAP/python-pyodata with additional unreviewed changes",

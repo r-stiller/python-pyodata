@@ -215,25 +215,25 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## 1.1.1 - First PIP package release
 
-[Unreleased]: https://github.com/SAP/python-pyodata/compare/1.12.0...HEAD
-[1.12.0]: https://github.com/SAP/python-pyodata/compare/1.11.2...1.12.0
-[1.11.2]: https://github.com/SAP/python-pyodata/compare/1.11.1...1.11.2
-[1.11.1]: https://github.com/SAP/python-pyodata/compare/1.11.0...1.11.1
-[1.11.0]: https://github.com/SAP/python-pyodata/compare/1.10.1...1.11.0
-[1.10.1]: https://github.com/SAP/python-pyodata/compare/1.10.0...1.10.1
-[1.10.0]: https://github.com/SAP/python-pyodata/compare/1.9.2...1.10.0
-[1.9.2]: https://github.com/SAP/python-pyodata/compare/1.9.1...1.9.2
-[1.9.1]: https://github.com/SAP/python-pyodata/compare/1.9.0...1.9.1
-[1.9.0]: https://github.com/SAP/python-pyodata/compare/1.8.0...1.9.0
-[1.8.0]: https://github.com/SAP/python-pyodata/compare/1.7.1...1.8.0
-[1.7.1]: https://github.com/SAP/python-pyodata/compare/1.7.0...1.7.1
-[1.7.0]: https://github.com/SAP/python-pyodata/compare/1.6.0...1.7.0
-[1.6.0]: https://github.com/SAP/python-pyodata/compare/1.5.0...1.6.0
-[1.5.0]: https://github.com/SAP/python-pyodata/compare/1.4.0...1.5.0
-[1.4.0]: https://github.com/SAP/python-pyodata/compare/1.3.0...1.4.0
-[1.3.0]: https://github.com/SAP/python-pyodata/compare/1.2.3...1.3.0
-[1.2.3]: https://github.com/SAP/python-pyodata/compare/1.2.2...1.2.3
-[1.2.2]: https://github.com/SAP/python-pyodata/compare/1.2.1...1.2.2
-[1.2.1]: https://github.com/SAP/python-pyodata/compare/1.2.0...1.2.1
-[1.2.0]: https://github.com/SAP/python-pyodata/compare/1.1.2...1.2.0
-[1.1.2]: https://github.com/SAP/python-pyodata/compare/1.1.1...1.1.2
+[Unreleased]: https://github.com/r-stiller/python-pyodata/compare/1.12.0...HEAD
+[1.12.0]: https://github.com/r-stiller/python-pyodata/compare/1.11.2...1.12.0
+[1.11.2]: https://github.com/r-stiller/python-pyodata/compare/1.11.1...1.11.2
+[1.11.1]: https://github.com/r-stiller/python-pyodata/compare/1.11.0...1.11.1
+[1.11.0]: https://github.com/r-stiller/python-pyodata/compare/1.10.1...1.11.0
+[1.10.1]: https://github.com/r-stiller/python-pyodata/compare/1.10.0...1.10.1
+[1.10.0]: https://github.com/r-stiller/python-pyodata/compare/1.9.2...1.10.0
+[1.9.2]: https://github.com/r-stiller/python-pyodata/compare/1.9.1...1.9.2
+[1.9.1]: https://github.com/r-stiller/python-pyodata/compare/1.9.0...1.9.1
+[1.9.0]: https://github.com/r-stiller/python-pyodata/compare/1.8.0...1.9.0
+[1.8.0]: https://github.com/r-stiller/python-pyodata/compare/1.7.1...1.8.0
+[1.7.1]: https://github.com/r-stiller/python-pyodata/compare/1.7.0...1.7.1
+[1.7.0]: https://github.com/r-stiller/python-pyodata/compare/1.6.0...1.7.0
+[1.6.0]: https://github.com/r-stiller/python-pyodata/compare/1.5.0...1.6.0
+[1.5.0]: https://github.com/r-stiller/python-pyodata/compare/1.4.0...1.5.0
+[1.4.0]: https://github.com/r-stiller/python-pyodata/compare/1.3.0...1.4.0
+[1.3.0]: https://github.com/r-stiller/python-pyodata/compare/1.2.3...1.3.0
+[1.2.3]: https://github.com/r-stiller/python-pyodata/compare/1.2.2...1.2.3
+[1.2.2]: https://github.com/r-stiller/python-pyodata/compare/1.2.1...1.2.2
+[1.2.1]: https://github.com/r-stiller/python-pyodata/compare/1.2.0...1.2.1
+[1.2.0]: https://github.com/r-stiller/python-pyodata/compare/1.1.2...1.2.0
+[1.1.2]: https://github.com/r-stiller/python-pyodata/compare/1.1.1...1.1.2
