@@ -6,7 +6,7 @@ It is intended as an internal engineering snapshot, not as end-user documentatio
 
 ## Current Status
 
-The repository now has explicit bootstrap paths for OData V3 metadata plus a narrow but usable runtime slice covering operation invocation, default media-stream reads for `HasStream` entities, named-stream reads for `Edm.Stream` properties, open-type runtime behavior for dynamic properties on open entity types, and narrow spatial primitive support for metadata lookup plus opaque payload round-trip.
+The repository now has an explicit first OData V3 milestone: opt-in bootstrap via `odata_version=3`, Verbose-JSON-only request and response handling, a coherent tested runtime slice, supported batch handling for the covered request and response shapes, and networking-library integration coverage across `requests`, `httpx` sync, `httpx` async, and `aiohttp`.
 
 ## Implemented
 
@@ -95,15 +95,24 @@ The repository now has explicit bootstrap paths for OData V3 metadata plus a nar
 - Added explicit failures for unsupported spatial operation-parameter usage rather than guessing V3 function/action parameter encoding.
 - Kept V2 runtime behavior unchanged by isolating the new primitive/runtime behavior in the V3 facade layer.
 
+### Session 10 milestone wrap-up
+
+- Added focused V3 batch coverage for the supported read and action request/response shapes under the current Verbose JSON contract.
+- Confirmed and documented V3 bootstrap plus representative request/header behavior across `requests`, `httpx` sync, `httpx` async, and `aiohttp`.
+- Added a narrow shared async response-normalization path so both async-context-manager clients and awaitable-response clients work through the same client/bootstrap code paths.
+- Updated `README.md`, `docs/usage/`, `docs/protocol_references.rst`, and `CHANGELOG.md` so the repository’s documented protocol support matches the actual V3 milestone now in tree.
+
 ## Intentionally Deferred
 
 The following are not implemented yet:
 
-- Generalized request execution changes beyond the current header/payload guardrails and unbound-operation support.
+- Generalized request execution changes beyond the current header/payload guardrails, the supported batch slice, and the current operation/runtime support.
 - Spatial URL/key literal support.
 - Spatial query and filter syntax.
 - Spatial function/action parameter encoding.
 - Named-stream writes and any broader upload API.
+- JSON Light payload support.
+- Atom payload support for V3 runtime requests and responses.
 - Broad parser redesign across all protocol versions.
 
 ## Test Status Snapshot
@@ -136,6 +145,7 @@ V3 service coverage currently passes for:
 - Rejection of explicit binding-parameter arguments on bound operations.
 - Collection-bound function URL generation and deterministic parameter ordering.
 - Collection-bound action response handling for no-return cases.
+- Batch request execution for the supported Verbose JSON read and action response shapes.
 - Default media-stream request construction for V3 media entities.
 - Named-stream request construction for V3 `Edm.Stream` properties.
 - Raw-content stream reads for default and named streams.
@@ -149,19 +159,28 @@ V3 service coverage currently passes for:
 - Explicit failure for unsupported spatial literal/filter usage.
 - Explicit failure for unsupported spatial operation-parameter usage.
 
+V3 networking-library integration coverage currently passes for:
+
+- Sync bootstrap with `requests`.
+- Sync bootstrap with `httpx`.
+- Async bootstrap with `httpx.AsyncClient`.
+- Async bootstrap with `aiohttp.ClientSession`.
+- Representative V3 entity reads with Verbose JSON headers for all four supported client integrations.
+
 ## Main Files Involved So Far
 
 - [pyodata/client.py](/C:/Users/r.stiller/dev/python-pyodata/pyodata/client.py)
 - [pyodata/v2/model.py](/C:/Users/r.stiller/dev/python-pyodata/pyodata/v2/model.py)
 - [pyodata/v3/model.py](/C:/Users/r.stiller/dev/python-pyodata/pyodata/v3/model.py)
 - [pyodata/v3/service.py](/C:/Users/r.stiller/dev/python-pyodata/pyodata/v3/service.py)
+- [tests/integration/networking_libraries](/C:/Users/r.stiller/dev/python-pyodata/tests/integration/networking_libraries)
 - [tests/test_model_v3.py](/C:/Users/r.stiller/dev/python-pyodata/tests/test_model_v3.py)
 - [tests/test_service_v3.py](/C:/Users/r.stiller/dev/python-pyodata/tests/test_service_v3.py)
 - [tests/metadata_v3.xml](/C:/Users/r.stiller/dev/python-pyodata/tests/metadata_v3.xml)
 
 ## Next Likely Milestones
 
-1. Decide whether the compact V3 scope needs named-stream writes or whether reads remain sufficient.
-2. Decide whether spatial support should stay payload-only or expand into key literals, filters, and operation parameters.
-3. Expand V3 runtime support beyond the current operation, stream, open-type, and payload-only spatial slice only when tests require it.
-4. Revisit broader request/query composition only if later fixtures require more than the current narrow bound, unbound, explicit stream, open-type, and payload round-trip support.
+1. Decide whether the first V3 milestone should grow beyond Verbose JSON into JSON Light, or whether that remains explicitly unsupported.
+2. Decide whether the compact V3 scope needs named-stream writes or whether reads remain sufficient.
+3. Decide whether spatial support should stay payload-only or expand into key literals, filters, and operation parameters.
+4. Expand V3 runtime support beyond the current operation, batch, stream, open-type, and payload-only spatial slice only when tests require it.

@@ -6,6 +6,26 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+## [1.12.0]
+
+### Added
+- Initial OData V3 milestone selected explicitly via `odata_version=3`, including
+  explicit V3 bootstrap, metadata parsing, entity querying and CRUD, unbound and
+  bound operation invocation, named and default stream reads, open types,
+  spatial JSON payload handling, and batch coverage for the supported Verbose
+  JSON request and response shapes.
+- OData V3 networking-library integration coverage for `requests`, `httpx`
+  sync, `httpx` async, and `aiohttp`.
+
+### Changed
+- README and user-facing docs now describe the supported OData V3 scope and its
+  current caveats.
+
+### Limitations
+- The initial OData V3 milestone currently supports Verbose JSON only. JSON
+  Light, Atom, broad stream upload and write surfaces, and general spatial URL
+  literal or operation-parameter support remain unsupported.
+
 ## [1.11.2]
 
 ### Fixed
@@ -195,8 +215,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## 1.1.1 - First PIP package release
 
-[Unreleased]: https://github.com/SAP/python-pyodata/compare/1.11.1...HEAD
-[1.11.1]: https://github.com/SAP/python-pyodata/compare/1.11.1...1.11.2
+[Unreleased]: https://github.com/SAP/python-pyodata/compare/1.12.0...HEAD
+[1.12.0]: https://github.com/SAP/python-pyodata/compare/1.11.2...1.12.0
+[1.11.2]: https://github.com/SAP/python-pyodata/compare/1.11.1...1.11.2
 [1.11.1]: https://github.com/SAP/python-pyodata/compare/1.11.0...1.11.1
 [1.11.0]: https://github.com/SAP/python-pyodata/compare/1.10.1...1.11.0
 [1.10.1]: https://github.com/SAP/python-pyodata/compare/1.10.0...1.10.1

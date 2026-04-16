@@ -853,8 +853,8 @@ packages:
   timestamp: 1775614307464
 - pypi: ./
   name: python-pyodata
-  version: 0.1.0
-  sha256: 6d1ccc79b40f9d76316e385f1fa85a8ad0714d82bdef9608c44b865b38f2faf8
+  version: 1.12.0
+  sha256: baf48b6d69c4893fca538acb7c1e2a7cf8b0a11dd72c0e0e629d4ef5c66f059e
   requires_python: '>=3.11'
 - conda: https://conda.anaconda.org/conda-forge/noarch/python_abi-3.14-8_cp314.conda
   build_number: 8

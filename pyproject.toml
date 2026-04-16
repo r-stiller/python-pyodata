@@ -1,9 +1,10 @@
 [project]
+# Modified in this fork; see NOTICE for additional attribution and disclaimer.
 authors = [{name = "Rene Stiller"}]
 dependencies = []
 name = "python-pyodata"
 requires-python = ">= 3.11"
-version = "0.1.0"
+version = "1.12.0"
 
 [build-system]
 build-backend = "hatchling.build"

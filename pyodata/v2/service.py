@@ -9,6 +9,7 @@
 import logging
 from functools import partial
 import json
+import inspect
 import random
 from email.parser import Parser
 from http.client import HTTPResponse
@@ -169,6 +170,43 @@ class ODataHttpResponse:
         if self.content:
             return json.loads(self.content.decode('utf-8'))
         return None
+
+
+def _get_async_response_status(response):
+    if hasattr(response, 'status'):
+        return response.status
+
+    return response.status_code
+
+
+async def _read_async_response_content(response):
+    if hasattr(response, 'aread'):
+        return await response.aread()
+
+    content = response.read()
+    if inspect.isawaitable(content):
+        return await content
+
+    return content
+
+
+async def async_response_to_odata(async_request):
+    """Normalize aiohttp/httpx async responses to ODataHttpResponse."""
+
+    if hasattr(async_request, '__aenter__') and hasattr(async_request, '__aexit__'):
+        async with async_request as async_response:
+            return ODataHttpResponse(
+                url=async_response.url,
+                headers=async_response.headers,
+                status_code=_get_async_response_status(async_response),
+                content=await _read_async_response_content(async_response))
+
+    async_response = await async_request
+    return ODataHttpResponse(
+        url=async_response.url,
+        headers=async_response.headers,
+        status_code=_get_async_response_status(async_response),
+        content=await _read_async_response_content(async_response))
 
 
 class EntityKey:
@@ -345,15 +383,13 @@ class ODataHttpRequest:
                   Fetches HTTP response and returns processed result"""
 
         url, body, headers, params = self._build_request()
-        async with self._connection.request(self.get_method(),
-                                            url,
-                                            headers=headers,
-                                            params=params,
-                                            data=body) as async_response:
-            response = ODataHttpResponse(url=async_response.url,
-                                         headers=async_response.headers,
-                                         status_code=async_response.status,
-                                         content=await async_response.read())
+        response = await async_response_to_odata(
+            self._connection.request(
+                self.get_method(),
+                url,
+                headers=headers,
+                params=params,
+                data=body))
         return self._call_handler(response)
 
     def execute(self):

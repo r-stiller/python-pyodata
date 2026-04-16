@@ -1,4 +1,5 @@
 # Copyright 2018 SAP SE.
+# Modified in this fork; see NOTICE for additional attribution and disclaimer.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -29,9 +30,9 @@ setup(
     version=_read('VERSION').strip(),
     license="Apache License Version 2.0",
     url="https://github.com/SAP/python-pyodata",
-    author="Jakub Filak, Michal Nezerka, Patrik Petrik, Petr Hanak",
+    author="Jakub Filak, Michal Nezerka, Patrik Petrik, Petr Hanak, Rene Stiller",
     author_email="jakub.filak@sap.com, michal.nezerka@sap.com, patrik.petrik@sap.com, petr.hanak@sap.com",
-    description="Enterprise ready Python OData client",
+    description="Fork of SAP/python-pyodata with additional unreviewed changes",
     long_description=_read('README.md'),
     long_description_content_type="text/markdown",
     packages=find_packages(exclude=("tests")),

@@ -8,7 +8,7 @@ It is intended as an internal engineering snapshot of the repository's primary p
 
 OData V2 is the default and production-stable protocol implementation in this repository.
 
-It is the only protocol version advertised as supported in [README.md](/C:/Users/r.stiller/dev/python-pyodata/README.md), and the current package, docs, and test suite are centered on V2 behavior.
+It remains the stable baseline protocol surface, while [README.md](/C:/Users/r.stiller/dev/python-pyodata/README.md) now also documents an explicit, narrower OData V3 milestone selected via `odata_version=3`. The package, compatibility expectations, and regression posture are still centered on preserving V2 behavior.
 
 ## Implemented
 
@@ -18,6 +18,7 @@ It is the only protocol version advertised as supported in [README.md](/C:/Users
 - Sync client creation is implemented.
 - Async client creation is implemented.
 - Metadata can be supplied directly or fetched from `/$metadata`.
+- Shared async client execution remains covered across the supported networking-library integrations.
 
 ### Metadata/model layer
 
@@ -47,6 +48,7 @@ It is the only protocol version advertised as supported in [README.md](/C:/Users
 - User-facing documentation under [docs/usage](/C:/Users/r.stiller/dev/python-pyodata/docs/usage).
 - Vendor-specific helpers under [pyodata/vendor](/C:/Users/r.stiller/dev/python-pyodata/pyodata/vendor).
 - CI compatibility across Python `3.9` through `3.14`.
+- Networking-library integration coverage for `requests`, `httpx` sync, `httpx` async, and `aiohttp`.
 
 ## Main Coverage Areas
 
@@ -63,10 +65,11 @@ The current repository has direct V2 coverage for:
 These are not necessarily defects, but they define the practical scope of the current V2 implementation:
 
 - The compatibility contract is driven by the existing V2 public API and test suite.
+- V2 remains the default client path even though the repository now also carries an explicit V3 milestone.
 - Vendor-specific behavior should stay isolated in [pyodata/vendor](/C:/Users/r.stiller/dev/python-pyodata/pyodata/vendor).
 - Metadata handling includes SAP-oriented extensions that are already part of the effective V2 surface.
 - Shared model objects now also carry some metadata bits used by the V3 layer, but V2 runtime behavior remains the stable strict baseline.
-- Changes in [pyodata/v2/model.py](/C:/Users/r.stiller/dev/python-pyodata/pyodata/v2/model.py) and [pyodata/v2/service.py](/C:/Users/r.stiller/dev/python-pyodata/pyodata/v2/service.py) carry broad regression risk and should stay narrow.
+- Changes in [pyodata/v2/model.py](/C:/Users/r.stiller/dev/python-pyodata/pyodata/v2/model.py) and [pyodata/v2/service.py](/C:/Users/r.stiller/dev/python-pyodata/pyodata/v2/service.py) carry broad regression risk and should stay narrow, including shared async adapter changes that may affect both V2 and V3 clients.
 
 ## Main Files
 

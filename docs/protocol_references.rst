@@ -6,7 +6,9 @@ working on or with **pyodata**.
 
 .. note::
 
-   **pyodata** currently supports OData V2. The V3 and V4 links below are
+   **pyodata** supports OData V2 and an initial OData V3 milestone. OData V3
+   must be selected explicitly via ``odata_version=3`` and currently supports
+   the documented Verbose-JSON-based feature slice only. The V4 links below are
    included as protocol background and cross-version reference material, not as
    a statement of feature support.
 

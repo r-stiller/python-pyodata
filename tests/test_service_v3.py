@@ -418,6 +418,69 @@ def test_v3_collection_bound_action_without_return_uses_no_return_handling(schem
     }]
 
 
+def test_v3_batch_request_executes_verbose_json_read_and_bound_action(schema_v3):
+    response_body = (
+        b'--batch_v3\n'
+        b'Content-Type: application/http\n'
+        b'Content-Transfer-Encoding: binary\n'
+        b'\n'
+        b'HTTP/1.1 200 OK\n'
+        b'Content-Type: application/json;odata=verbose\n'
+        b'\n'
+        b'{"d": {"Id": 1, "Title": "Spec draft"}}\n'
+        b'--batch_v3\n'
+        b'Content-Type: multipart/mixed; boundary=changeset_v3\n'
+        b'\n'
+        b'--changeset_v3\n'
+        b'Content-Type: application/http\n'
+        b'Content-Transfer-Encoding: binary\n'
+        b'\n'
+        b'HTTP/1.1 200 OK\n'
+        b'Content-Type: application/json;odata=verbose\n'
+        b'\n'
+        b'{"d": true}\n'
+        b'--changeset_v3--\n'
+        b'\n'
+        b'--batch_v3--')
+    connection = _StaticResponseConnection(pyodata.v2.service.ODataHttpResponse(
+        url=f'{URL_ROOT}/$batch',
+        headers={'Content-Type': 'multipart/mixed; boundary=batch_v3'},
+        status_code=202,
+        content=response_body))
+    service = pyodata.v3.service.Service(URL_ROOT, schema_v3, connection)
+
+    batch = service.create_batch('v3')
+    changeset = service.create_changeset('v3')
+
+    batch.add_request(service.entity_sets.Documents.get_entity(1, encode_path=False))
+    changeset.add_request(
+        service.entity_sets.Documents.get_entity(1, encode_path=False).actions.Approve.parameter(
+            'Comment', 'ship it'))
+    batch.add_request(changeset)
+
+    result = batch.execute()
+
+    assert len(result) == 2
+    assert isinstance(result[0], pyodata.v3.service.EntityProxy)
+    assert result[0].Title == 'Spec draft'
+    assert result[1] == [True]
+    assert connection.requests == [{
+        'method': 'POST',
+        'url': f'{URL_ROOT}/$batch',
+        'headers': {
+            'Content-Type': 'multipart/mixed;boundary=batch_v3',
+        },
+        'params': '',
+        'data': batch.get_body(),
+    }]
+    assert 'GET Documents(1) HTTP/1.1' in connection.requests[0]['data']
+    assert 'Accept: application/json;odata=verbose' in connection.requests[0]['data']
+    assert 'MaxDataServiceVersion: 3.0' in connection.requests[0]['data']
+    assert 'POST Documents(1)/V3DemoContainer.Approve HTTP/1.1' in connection.requests[0]['data']
+    assert 'Content-Type: application/json;odata=verbose' in connection.requests[0]['data']
+    assert '{"Comment": "ship it"}' in connection.requests[0]['data']
+
+
 def test_v3_media_stream_access_api_shape(service_v3):
     request = service_v3.entity_sets.Documents.get_entity(1).media_stream()
 

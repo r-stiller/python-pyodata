@@ -1,1 +1,10 @@
 Copyright (c) 2019 SAP SE or an SAP affiliate company. All rights reserved.
+
+This repository is a fork of the original SAP/python-pyodata project.
+
+Fork-specific modifications are maintained separately from upstream. The
+fork-specific changes were vibecoded and have not been checked by a human.
+
+This fork is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS
+OF ANY KIND. See the Apache License, Version 2.0 for the full disclaimer and
+limitations.

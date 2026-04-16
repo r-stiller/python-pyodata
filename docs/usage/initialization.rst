@@ -21,6 +21,42 @@ Basic initialization which is going to work for everybody:
 
     northwind = pyodata.Client(SERVICE_URL, requests.Session())
 
+Selecting the protocol version
+------------------------------
+
+By default, :class:`pyodata.Client` creates an OData V2 service. To use the
+current OData V3 implementation, pass ``odata_version=pyodata.Client.ODATA_VERSION_3``
+or ``odata_version=3`` explicitly:
+
+.. code-block:: python
+
+    import pyodata
+    import requests
+
+    SERVICE_URL = 'http://services.odata.org/V3/OData/OData.svc/'
+
+    service_v3 = pyodata.Client(
+        SERVICE_URL,
+        requests.Session(),
+        odata_version=pyodata.Client.ODATA_VERSION_3)
+
+The current OData V3 milestone supports Verbose JSON only. The supported V3
+slice currently includes:
+
+- explicit client bootstrap
+- metadata parsing for the tested V3 fixtures
+- entity querying and CRUD
+- unbound and the current bound function and action surface
+- batch for the supported JSON request and response shapes
+- named and default stream reads
+- open entity types and dynamic properties
+
+The following V3 areas remain unsupported or partial:
+
+- JSON Light and Atom payload handling
+- broad stream upload and write support
+- general spatial URL literal, filter, and operation-parameter support
+
 Get the service for async libraries
 -----------------------------------
 
@@ -31,11 +67,17 @@ but also must have API compatible Session_ from Requests_.
 
     import httpx
     import aiohttp
+    import pyodata
 
     SERVICE_URL = 'http://services.odata.org/V2/Northwind/Northwind.svc/'
     
     service_httpx   = await pyodata.Client.build_async_client(SERVICE_URL, httpx)
     service_aiohttp = await pyodata.Client.build_async_client(SERVICE_URL, aiohttp.ClientSession())
+
+    service_httpx_v3 = await pyodata.Client.build_async_client(
+        'http://services.odata.org/V3/OData/OData.svc/',
+        httpx.AsyncClient(),
+        odata_version=pyodata.Client.ODATA_VERSION_3)
 
 Get the service proxy client for an OData service requiring sap-client parameter
 --------------------------------------------------------------------------------

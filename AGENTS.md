@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This repository should be approached as a Python OData V2 client library with a stable public surface, a `pixi`-first local workflow, and a CI-defined compatibility contract. Optimize for small, behavior-preserving changes unless the task explicitly requires a public behavior change.
+This repository should be approached as a Python OData client library with a stable OData V2 public surface, an explicit first OData V3 milestone, a `pixi`-first local workflow, and a CI-defined compatibility contract. Optimize for small, behavior-preserving changes unless the task explicitly requires a public behavior change.
 
 ## Canonical Repo Map
 
@@ -32,6 +32,7 @@ This repository should be approached as a Python OData V2 client library with a 
 
 - Keep sync and async client creation behavior aligned.
 - Preserve URL normalization, metadata fetch semantics, MIME checks, and error behavior.
+- Shared async client handling must remain compatible with the currently supported networking-library adapters, including both async-context-manager style clients such as `aiohttp` and awaitable-response clients such as `httpx.AsyncClient`.
 - Be careful with deprecated namespace handling; existing warnings are part of the compatibility surface.
 
 ### `pyodata/v2/model.py`
@@ -57,12 +58,13 @@ This repository should be approached as a Python OData V2 client library with a 
 
 - Prefer V3-specific request/container classes over broad edits to `pyodata/v2/service.py`.
 - Keep V2 `service.functions.*` behavior unchanged; V3 differences should stay isolated here.
-- Current V3 runtime scope includes explicit header policy, Verbose-JSON-only parsing, unbound operation invocation, the current bound operation slice from entity and entity-set contexts, explicit stream access for media entities and named streams, open-type runtime handling for dynamic properties on open entity types, and narrow primitive/runtime support for the currently tested V3-only spatial values via opaque mapping round-trip.
+- Current V3 runtime scope includes explicit header policy, Verbose-JSON-only parsing, unbound operation invocation, the current bound operation slice from entity and entity-set contexts, explicit stream access for media entities and named streams, open-type runtime handling for dynamic properties on open entity types, supported batch request/response handling for the currently tested Verbose JSON shapes, and narrow primitive/runtime support for the currently tested V3-only spatial values via opaque mapping round-trip.
 - Preserve the current V3 distinction between unbound and bound operations, including implicit binding parameters, path-style bound functions, and qualified bound-action segments.
 - Keep default media-stream and named-stream access on explicit V3 proxy methods; do not broaden V2 proxy semantics to match.
 - Preserve the current open-type boundary: dynamic/undeclared properties are retained and writable only for open V3 entity types, while closed types keep strict undeclared-property failures.
 - Preserve the current explicit failures for unsupported spatial URL literal, key, filter, and operation-parameter semantics; do not guess a V3 spatial URI/query format.
 - Broader spatial semantics and broader stream write/upload surfaces remain deferred unless the task explicitly takes them on.
+- Keep the supported V3 networking-library slice aligned across `requests`, `httpx` sync, `httpx` async, and `aiohttp`; do not add V3 behavior in only one adapter path without corresponding coverage.
 
 ### `pyodata/vendor/`
 

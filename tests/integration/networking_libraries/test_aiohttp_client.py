@@ -106,6 +106,40 @@ async def test_create_v3_service_application(aiohttp_client, metadata_v3):
 
 
 @pytest.mark.asyncio
+async def test_v3_async_get_entity_uses_verbose_json_headers(aiohttp_client, metadata_v3):
+    """Check a representative V3 request path and header policy for aiohttp."""
+
+    seen_headers = {}
+
+    async def document_response(request):
+        seen_headers['Accept'] = request.headers.get('Accept')
+        seen_headers['MaxDataServiceVersion'] = request.headers.get('MaxDataServiceVersion')
+        return web.Response(
+            status=200,
+            headers={'content-type': 'application/json'},
+            body=b'{"d": {"Id": 1, "Title": "Spec draft"}}')
+
+    app = web.Application()
+    app.router.add_get('/Documents(1)', document_response)
+    client = await aiohttp_client(app)
+
+    service_client = await Client.build_async_client(
+        SERVICE_URL,
+        client,
+        odata_version=Client.ODATA_VERSION_3,
+        metadata=metadata_v3)
+
+    entity = await service_client.entity_sets.Documents.get_entity(1, encode_path=False).async_execute()
+
+    assert entity.Id == 1
+    assert entity.Title == 'Spec draft'
+    assert seen_headers == {
+        'Accept': 'application/json;odata=verbose',
+        'MaxDataServiceVersion': '3.0',
+    }
+
+
+@pytest.mark.asyncio
 async def test_metadata_not_reachable(aiohttp_client):
     """Check handling of not reachable service metadata"""
 

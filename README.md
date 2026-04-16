@@ -1,9 +1,3 @@
-![Build Status](https://github.com/SAP/python-pyodata/actions/workflows/python-tests-compatibility.yml/badge.svg)
-![Lint Status](https://github.com/SAP/python-pyodata/actions/workflows/python-linters.yml/badge.svg)
-[![PyPI version](https://badge.fury.io/py/pyodata.svg)](https://badge.fury.io/py/pyodata)
-[![codecov](https://codecov.io/gh/SAP/python-pyodata/branch/master/graph/badge.svg)](https://codecov.io/gh/SAP/python-pyodata)
-[![REUSE status](https://api.reuse.software/badge/github.com/SAP/python-pyodata)](https://api.reuse.software/info/github.com/SAP/python-pyodata)
-
 # Python OData Client - pyodata
 
 Python OData client which provides comfortable Python agnostic
@@ -12,9 +6,30 @@ way for communication with OData services.
 The goal of this Python module is to hide all OData protocol implementation
 details.
 
+## Fork Notice
+
+This repository is a fork of the original
+[`SAP/python-pyodata`](https://github.com/SAP/python-pyodata) project and
+continues to distribute the code under the Apache License, Version 2.0.
+
+The original upstream attribution and notice are retained in [LICENSE](LICENSE)
+and [NOTICE](NOTICE). This fork contains additional modifications relative to
+upstream.
+
+The fork-specific changes in this repository were vibecoded and have not been
+checked by a human. Treat all fork-specific behavior as unreviewed until you
+verify it yourself.
+
+There is no warranty whatsoever for this fork. It is provided strictly on an
+"AS IS" basis, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, express or
+implied, including MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, and
+NON-INFRINGEMENT.
+
 ## Supported features
 
 - OData V2
+- OData V3, when selected explicitly via `odata_version=3`, for the current first
+  milestone feature set
 
 ## Requirements
 
@@ -35,7 +50,15 @@ Python module without any additional configuration steps needed.
 
 ## Limitations
 
-There have been no limitations discovered yet.
+- OData V3 support must be selected explicitly with `odata_version=3`.
+- OData V3 currently supports Verbose JSON only.
+- The current V3 milestone covers client bootstrap, metadata parsing, entity
+  querying and CRUD, function and action invocation, batch for the supported
+  JSON request and response shapes, named and default stream reads, open types,
+  and the tested `requests`, `httpx`, and `aiohttp` integrations.
+- OData V3 does not yet provide JSON Light or Atom support, broad stream upload
+  and write support, or general spatial URL literal and operation-parameter
+  support.
 
 ## Known Issues
 
@@ -43,7 +66,9 @@ There are no known issues at this time.
 
 ## How to obtain support
 
-We accept bug reports, feature requests, questions and comments via [GitHub issues](https://github.com/SAP/python-pyodata/issues)
+For this fork, use the fork's own issue tracker and release process.
+Upstream support and issue triage belong to the original
+[`SAP/python-pyodata`](https://github.com/SAP/python-pyodata) project.
 
 ## Usage
 
@@ -59,6 +84,12 @@ SERVICE_URL = 'http://services.odata.org/V2/Northwind/Northwind.svc/'
 
 # Create instance of OData client
 client = pyodata.Client(SERVICE_URL, requests.Session())
+
+# Select the current OData V3 implementation explicitly
+client_v3 = pyodata.Client(
+    'http://services.odata.org/V3/OData/OData.svc/',
+    requests.Session(),
+    odata_version=pyodata.Client.ODATA_VERSION_3)
 ```
 
 Find more sophisticated examples in [The User Guide](docs/usage/README.md).
@@ -90,6 +121,11 @@ Your username is `yourname` and you're submitting a basic bugfix or feature.
 
 ## License
 
-Copyright (c) 2025 SAP SE or an SAP affiliate company. All rights reserved.
-This file is licensed under the Apache Software License, v. 2 except as noted
-otherwise in [the LICENSE file](LICENSE)
+This fork is distributed under the Apache License, Version 2.0.
+
+Upstream attribution from the original SAP project is preserved in
+[NOTICE](NOTICE) and [LICENSE](LICENSE). Additional fork notices are also
+recorded in [NOTICE](NOTICE).
+
+No warranty whatsoever is provided for this fork. See Section 7 of the Apache
+License in [LICENSE](LICENSE).

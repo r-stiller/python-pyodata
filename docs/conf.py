@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 #
 # Configuration file for the Sphinx documentation builder.
+# Modified in this fork; see NOTICE for additional attribution and disclaimer.
 #
 # This file does only contain a selection of the most common options. For a
 # full list see the documentation:
@@ -20,13 +21,13 @@
 # -- Project information -----------------------------------------------------
 
 project = 'PyOData'
-copyright = '2019 SAP SE or an SAP affiliate company'
-author = 'SAP'
+copyright = '2019 SAP SE or an SAP affiliate company; fork modifications by Rene Stiller'
+author = 'SAP; fork maintained by Rene Stiller'
 
 # The short X.Y version
 version = ''
 # The full version, including alpha/beta/rc tags
-release = '1.2.1'
+release = '1.12.0'
 
 
 # -- General configuration ---------------------------------------------------
@@ -86,11 +87,8 @@ html_theme = 'alabaster'
 #
 html_theme_options = {
     "show_related": False,
-    "github_button": True,
-    "github_user": "SAP",
-    "github_repo": "python-pyodata",
-    "github_type": "star",
-    "travis_button": True,
+    "github_button": False,
+    "travis_button": False,
 }
 
 # Add any paths that contain custom static files (such as style sheets) here,
@@ -140,7 +138,7 @@ latex_elements = {
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
     (master_doc, 'PyOData.tex', 'PyOData Documentation',
-     'SAP', 'manual'),
+     author, 'manual'),
 ]
 
 

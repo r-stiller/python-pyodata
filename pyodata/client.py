@@ -13,13 +13,9 @@ from pyodata.exceptions import PyODataException, HttpError
 async def _async_fetch_metadata(connection, url, logger):
     logger.info('Fetching metadata')
 
-    async with connection.get(url + '$metadata') as async_response:
-        resp = pyodata.v2.service.ODataHttpResponse(url=async_response.url,
-                                                    headers=async_response.headers,
-                                                    status_code=async_response.status,
-                                                    content=await async_response.read())
+    resp = await pyodata.v2.service.async_response_to_odata(connection.get(url + '$metadata'))
 
-        return _common_fetch_metadata(resp, logger)
+    return _common_fetch_metadata(resp, logger)
 
 
 def _fetch_metadata(connection, url, logger):
