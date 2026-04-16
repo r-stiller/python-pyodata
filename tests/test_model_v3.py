@@ -5,7 +5,7 @@ import io
 import pytest
 from lxml import etree
 
-from pyodata.v3.model import Config, MetadataBuilder, NullType, ParserError, PolicyIgnore
+from pyodata.v3.model import Config, MetadataBuilder, NullType, ParserError, PolicyIgnore, TypeInfo
 from tests.conftest import contents_of_fixtures_file
 
 
@@ -34,18 +34,21 @@ def test_v3_builder_accepts_microsoft_2009_11_edm_namespace(schema_v3):
     assert schema_v3.entity_type('Document').name == 'Document'
 
 
-def test_v3_alias_references_are_preserved_in_property_type_info(schema_v3):
-    """Alias-qualified type names should survive parsing even before alias resolution exists."""
+def test_v3_aliases_resolve_property_types_from_schema_alias_and_using(schema_v3):
+    """V3 property types should resolve aliases declared by Schema Alias and edm:Using."""
 
     document = schema_v3.entity_type('Document')
 
     local_info = document.proprty('LocalInfo')
     external_info = document.proprty('ExternalInfo')
 
-    assert local_info.type_info.namespace == 'Self'
+    assert local_info.type_info.namespace == 'V3Demo.Model'
     assert local_info.type_info.name == 'LocalInfo'
-    assert external_info.type_info.namespace == 'Ext'
+    assert local_info.typ.name == 'LocalInfo'
+
+    assert external_info.type_info.namespace == 'V3Demo.External'
     assert external_info.type_info.name == 'TagInfo'
+    assert external_info.typ.name == 'TagInfo'
 
 
 def test_v3_function_import_basics_are_parsed(schema_v3):
@@ -69,7 +72,6 @@ def test_v3_function_import_basics_are_parsed(schema_v3):
     assert [parameter.name for parameter in approve.parameters] == ['bindingParameter', 'Comment']
 
 
-@pytest.mark.xfail(reason='V3 alias declarations are not collected from Schema Alias and edm:Using yet', strict=True)
 def test_v3_alias_declarations_are_extracted_for_schema_alias_and_using(metadata_v3):
     config = Config(xml_namespaces={
         'edmx': 'http://schemas.microsoft.com/ado/2007/06/edmx',
@@ -79,10 +81,9 @@ def test_v3_alias_declarations_are_extracted_for_schema_alias_and_using(metadata
     aliases = MetadataBuilder.get_aliases(etree.parse(io.BytesIO(metadata_v3)), config)
 
     assert aliases['V3Demo.Model'] == {'Self'}
-    assert aliases['V3Demo.External'] == {'Ext'}
+    assert aliases['V3Demo.External'] == {'Ext', 'External'}
 
 
-@pytest.mark.xfail(reason='FunctionImport does not expose V3 bindable and side-effect metadata yet', strict=True)
 def test_v3_function_import_exposes_operation_flags(schema_v3):
     search = schema_v3.function_import('SearchDocuments')
     peer = schema_v3.function_import('GetPeerDocument')
@@ -102,6 +103,25 @@ def test_v3_function_import_exposes_operation_flags(schema_v3):
     assert approve.is_side_effecting is True
     assert approve.is_composable is False
     assert approve.entity_set_path == 'bindingParameter'
+
+
+def test_v3_function_import_return_types_and_binding_parameters_are_parsed(schema_v3):
+    search = schema_v3.function_import('SearchDocuments')
+    peer = schema_v3.function_import('GetPeerDocument')
+    approve = schema_v3.function_import('Approve')
+
+    assert search.return_type_info == TypeInfo('V3Demo.Model', 'Document', True)
+    assert search.binding_parameter is None
+    assert [parameter.is_binding_parameter for parameter in search.parameters] == [False, False]
+
+    assert peer.return_type_info == TypeInfo('V3Demo.Model', 'Document', False)
+    assert peer.binding_parameter.name == 'bindingParameter'
+    assert peer.binding_parameter.is_binding_parameter is True
+    assert peer.binding_parameter.typ.name == 'Document'
+
+    assert approve.return_type_info == TypeInfo(None, 'Edm.Boolean', False)
+    assert approve.binding_parameter.name == 'bindingParameter'
+    assert approve.binding_parameter.typ.name == 'Document'
 
 
 @pytest.mark.xfail(reason='Open type and stream metadata are not exposed on entity types yet', strict=True)

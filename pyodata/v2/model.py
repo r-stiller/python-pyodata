@@ -253,7 +253,7 @@ class Types:
         return Types.Types[search_name]
 
     @staticmethod
-    def parse_type_name(type_name):
+    def parse_type_name(type_name, aliases=None):
 
         # detect if name represents collection
         is_collection = type_name.lower().startswith('collection(') and type_name.endswith(')')
@@ -265,7 +265,11 @@ class Types:
         if identifier.namespace == 'Edm':
             return TypeInfo(None, type_name, is_collection)
 
-        return TypeInfo(identifier.namespace, identifier.name, is_collection)
+        namespace = identifier.namespace
+        if namespace is not None and aliases is not None:
+            namespace = aliases.get(namespace, namespace)
+
+        return TypeInfo(namespace, identifier.name, is_collection)
 
 
 class EdmStructTypeSerializer:
@@ -1384,7 +1388,7 @@ class Schema:
             decl = schema._decls[namespace]
 
             for entity_set in schema_node.xpath('edm:EntityContainer/edm:EntitySet', namespaces=config.namespaces):
-                eset = EntitySet.from_etree(entity_set)
+                eset = EntitySet.from_etree(entity_set, config)
                 eset.entity_type = schema.entity_type(eset.entity_type_info[1], namespace=eset.entity_type_info[0])
                 decl.entity_sets[eset.name] = eset
 
@@ -1510,7 +1514,7 @@ class StructType(Typ):
         stype = cls(name, label, is_value_list)
 
         for proprty in type_node.xpath('edm:Property', namespaces=config.namespaces):
-            stp = StructTypeProperty.from_etree(proprty)
+            stp = StructTypeProperty.from_etree(proprty, config)
 
             if stp.name in stype._properties:
                 raise KeyError(f'{stype} already has property {stp.name}')
@@ -1690,7 +1694,7 @@ class EntityType(StructType):
             etype._key.append(etype.proprty(proprty.get('Name')))
 
         for proprty in type_node.xpath('edm:NavigationProperty', namespaces=config.namespaces):
-            navp = NavigationTypeProperty.from_etree(proprty)
+            navp = NavigationTypeProperty.from_etree(proprty, config)
 
             if navp.name in etype._nav_properties:
                 raise KeyError(f'{etype} already has navigation property {navp.name}')
@@ -1777,9 +1781,10 @@ class EntitySet(Identifier):
         return self._label
 
     @staticmethod
-    def from_etree(entity_set_node):
+    def from_etree(entity_set_node, config=None):
         name = entity_set_node.get('Name')
-        et_info = Types.parse_type_name(entity_set_node.get('EntityType'))
+        aliases = getattr(config, 'type_aliases', None)
+        et_info = Types.parse_type_name(entity_set_node.get('EntityType'), aliases)
 
         # TODO: create a class SAP attributes
         addressable = sap_attribute_get_bool(entity_set_node, 'addressable', True)
@@ -1925,11 +1930,12 @@ class StructTypeProperty(VariableDeclaration):
         self._value_helper = value
 
     @staticmethod
-    def from_etree(entity_type_property_node):
+    def from_etree(entity_type_property_node, config=None):
+        aliases = getattr(config, 'type_aliases', None)
 
         return StructTypeProperty(
             entity_type_property_node.get('Name'),
-            Types.parse_type_name(entity_type_property_node.get('Type')),
+            Types.parse_type_name(entity_type_property_node.get('Type'), aliases),
             attribute_get_bool(entity_type_property_node, 'Nullable', True),
             entity_type_property_node.get('MaxLength'),
             entity_type_property_node.get('Precision'),
@@ -2008,10 +2014,12 @@ class NavigationTypeProperty(VariableDeclaration):
         return self.to_role.entity_type
 
     @staticmethod
-    def from_etree(node):
+    def from_etree(node, config=None):
+        aliases = getattr(config, 'type_aliases', None)
 
         return NavigationTypeProperty(
-            node.get('Name'), node.get('FromRole'), node.get('ToRole'), Identifier.parse(node.get('Relationship')))
+            node.get('Name'), node.get('FromRole'), node.get('ToRole'),
+            Types.parse_type_name(node.get('Relationship'), aliases))
 
 
 class EndRole:
@@ -2060,8 +2068,9 @@ class EndRole:
         return self._role
 
     @staticmethod
-    def from_etree(end_role_node):
-        entity_type_info = Types.parse_type_name(end_role_node.get('Type'))
+    def from_etree(end_role_node, config=None):
+        aliases = getattr(config, 'type_aliases', None)
+        entity_type_info = Types.parse_type_name(end_role_node.get('Type'), aliases)
         multiplicity = end_role_node.get('Multiplicity')
         role = end_role_node.get('Role')
 
@@ -2181,7 +2190,7 @@ class Association:
         association = Association(name)
 
         for end in association_node.xpath('edm:End', namespaces=config.namespaces):
-            end_role = EndRole.from_etree(end)
+            end_role = EndRole.from_etree(end, config)
             if end_role.entity_type_info is None:
                 raise RuntimeError(f'End type is not specified in the association {name}')
             association._end_roles.append(end_role)
@@ -2573,7 +2582,8 @@ class ValueHelperParameter:
 
 
 class FunctionImport(Identifier):
-    def __init__(self, name, return_type_info, entity_set, parameters, http_method='GET'):
+    def __init__(self, name, return_type_info, entity_set, parameters, http_method='GET',
+                 is_bindable=False, is_side_effecting=False, is_composable=None, entity_set_path=None):
         super(FunctionImport, self).__init__(name)
 
         self._entity_set_name = entity_set
@@ -2581,6 +2591,10 @@ class FunctionImport(Identifier):
         self._return_type = None
         self._parameters = parameters
         self._http_method = http_method
+        self._is_bindable = is_bindable
+        self._is_side_effecting = is_side_effecting
+        self._is_composable = is_composable
+        self._entity_set_path = entity_set_path
 
     @property
     def return_type_info(self):
@@ -2605,8 +2619,32 @@ class FunctionImport(Identifier):
         return self._entity_set_name
 
     @property
+    def entity_set_path(self):
+        return self._entity_set_path
+
+    @property
     def parameters(self):
         return list(self._parameters.values())
+
+    @property
+    def is_bindable(self):
+        return self._is_bindable
+
+    @property
+    def is_side_effecting(self):
+        return self._is_side_effecting
+
+    @property
+    def is_composable(self):
+        return self._is_composable
+
+    @property
+    def binding_parameter(self):
+        for parameter in self._parameters.values():
+            if parameter.is_binding_parameter:
+                return parameter
+
+        return None
 
     def get_parameter(self, parameter):
         return self._parameters[parameter]
@@ -2621,37 +2659,50 @@ class FunctionImport(Identifier):
         name = function_import_node.get('Name')
         entity_set = function_import_node.get('EntitySet')
         http_method = metadata_attribute_get(function_import_node, 'HttpMethod')
+        aliases = getattr(config, 'type_aliases', None)
+        is_bindable = attribute_get_bool(function_import_node, 'IsBindable', False)
+        is_side_effecting = attribute_get_bool(function_import_node, 'IsSideEffecting', False)
+        is_composable = attribute_get_bool(function_import_node, 'IsComposable', False)
+        entity_set_path = function_import_node.get('EntitySetPath')
 
         rt_type = function_import_node.get('ReturnType')
-        rt_info = None if rt_type is None else Types.parse_type_name(rt_type)
+        rt_info = None if rt_type is None else Types.parse_type_name(rt_type, aliases)
 
         parameters = dict()
-        for param in function_import_node.xpath('edm:Parameter', namespaces=config.namespaces):
+        for index, param in enumerate(function_import_node.xpath('edm:Parameter', namespaces=config.namespaces)):
             param_name = param.get('Name')
-            param_type_info = Types.parse_type_name(param.get('Type'))
+            param_type_info = Types.parse_type_name(param.get('Type'), aliases)
             param_nullable = attribute_get_bool(param, 'Nullable', False)
             param_max_length = param.get('MaxLength')
             param_precision = param.get('Precision')
             param_scale = param.get('Scale')
             param_mode = param.get('Mode')
+            is_binding_parameter = is_bindable and index == 0
 
             parameters[param_name] = FunctionImportParameter(param_name, param_type_info, param_nullable,
-                                                             param_max_length, param_precision, param_scale, param_mode)
+                                                             param_max_length, param_precision, param_scale, param_mode,
+                                                             is_binding_parameter)
 
-        return FunctionImport(name, rt_info, entity_set, parameters, http_method)
+        return FunctionImport(name, rt_info, entity_set, parameters, http_method,
+                              is_bindable, is_side_effecting, is_composable, entity_set_path)
 
 
 class FunctionImportParameter(VariableDeclaration):
     Modes = Enum('Modes', 'In Out InOut')
 
-    def __init__(self, name, type_info, nullable, max_length, precision, scale, mode):
+    def __init__(self, name, type_info, nullable, max_length, precision, scale, mode, is_binding_parameter=False):
         super(FunctionImportParameter, self).__init__(name, type_info, nullable, max_length, precision, scale, None)
 
         self._mode = mode
+        self._is_binding_parameter = is_binding_parameter
 
     @property
     def mode(self):
         return self._mode
+
+    @property
+    def is_binding_parameter(self):
+        return self._is_binding_parameter
 
 
 def sap_attribute_get(node, attr):
