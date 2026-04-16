@@ -1,5 +1,7 @@
 """V3 service baseline tests."""
 
+import datetime
+
 import pytest
 
 import pyodata
@@ -224,12 +226,75 @@ def test_v3_non_verbose_json_payload_fails_clearly(schema_v3):
         'expected a top-level "d" envelope in the response payload')
 
 
-@pytest.mark.xfail(reason='FunctionRequest still serializes parameters as V2 query-string options', strict=True)
 def test_v3_unbound_function_uses_path_style_parameters(service_v3):
     request = service_v3.functions.SearchDocuments.parameter('Query', 'draft').parameter('Limit', 2)
 
     assert request.get_path() == "SearchDocuments(Query='draft',Limit=2)"
     assert request.get_query_params() == {}
+
+
+def test_v3_unbound_function_parameter_order_is_metadata_stable(service_v3):
+    request = service_v3.functions.SearchDocuments.parameter('Limit', 2).parameter('Query', 'draft')
+
+    assert request.get_path() == "SearchDocuments(Query='draft',Limit=2)"
+
+
+def test_v3_unbound_function_reuses_existing_literal_formatting(service_v3):
+    request = service_v3.functions.SearchDocumentsCreatedAfter.parameter(
+        'Exact', True).parameter(
+        'CreatedAfter', datetime.datetime(2017, 12, 24, 18, 0, tzinfo=datetime.timezone.utc))
+
+    assert request.get_path() == (
+        "SearchDocumentsCreatedAfter(CreatedAfter=datetime'2017-12-24T18:00:00',Exact=true)")
+
+
+def test_v3_unbound_action_uses_post_and_json_request_shape(schema_v3):
+    connection = _StaticResponseConnection(pyodata.v2.service.ODataHttpResponse(
+        url=f'{URL_ROOT}/ApproveDocuments',
+        headers={'Content-type': 'application/json'},
+        status_code=200,
+        content=b'{"d": true}'))
+    service = pyodata.v3.service.Service(URL_ROOT, schema_v3, connection)
+
+    request = service.functions.ApproveDocuments.parameter('Force', True).parameter('Comment', 'ship it')
+
+    assert request.get_method() == 'POST'
+    assert request.get_path() == 'ApproveDocuments'
+    assert request.get_query_params() == {}
+    assert request.get_headers() == {
+        'Accept': 'application/json;odata=verbose',
+        'Content-Type': 'application/json;odata=verbose',
+        'MaxDataServiceVersion': '3.0',
+    }
+    assert request.get_body() == '{"Comment": "ship it", "Force": true}'
+    assert request.execute() is True
+    assert connection.requests == [{
+        'method': 'POST',
+        'url': f'{URL_ROOT}/ApproveDocuments',
+        'headers': {
+            'Accept': 'application/json;odata=verbose',
+            'Content-Type': 'application/json;odata=verbose',
+            'MaxDataServiceVersion': '3.0',
+        },
+        'params': '',
+        'data': '{"Comment": "ship it", "Force": true}',
+    }]
+
+
+def test_v3_unbound_action_without_return_uses_no_return_handling(schema_v3):
+    connection = _StaticResponseConnection(pyodata.v2.service.ODataHttpResponse(
+        url=f'{URL_ROOT}/RefreshSearchIndex',
+        headers={},
+        status_code=204,
+        content=b''))
+    service = pyodata.v3.service.Service(URL_ROOT, schema_v3, connection)
+
+    request = service.functions.RefreshSearchIndex
+
+    assert request.get_method() == 'POST'
+    assert request.get_path() == 'RefreshSearchIndex'
+    assert request.get_body() is None
+    assert request.execute() is None
 
 
 @pytest.mark.xfail(reason='Bound functions do not have a V3 invocation surface yet', strict=True)

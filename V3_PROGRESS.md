@@ -6,7 +6,7 @@ It is intended as an internal engineering snapshot, not as end-user documentatio
 
 ## Current Status
 
-The repository now has explicit bootstrap paths for OData V3 metadata and service wiring, but V3 runtime behavior is still incomplete.
+The repository now has explicit bootstrap paths for OData V3 metadata and a first narrow slice of runtime behavior, but V3 support is still incomplete overall.
 
 ## Implemented
 
@@ -42,14 +42,24 @@ The repository now has explicit bootstrap paths for OData V3 metadata and servic
   - binding-parameter identification
 - Added V3 `ReturnType` parsing support for the forms covered by current V3 tests.
 
+### Session 5 unbound operation invocation
+
+- Added a V3-specific unbound operation container in `pyodata.v3.service`.
+- Added V3 unbound function invocation with path-style parameter formatting such as `Func(A=1,B='x')`.
+- Kept parameter ordering deterministic by following metadata declaration order.
+- Reused existing parameter literal conversion for V3 function URL arguments.
+- Added V3 unbound action invocation with `POST` semantics.
+- Added V3 action request bodies using existing parameter JSON conversion.
+- Preserved current return/no-return response handling for unbound V3 operations under the Verbose JSON contract.
+- Kept V2 function-import request semantics unchanged by isolating the V3 runtime behavior in `pyodata.v3.service`.
+
 ## Intentionally Deferred
 
 The following are not implemented yet:
 
-- Unbound function URL semantics.
 - Bound function invocation.
 - Bound action invocation.
-- Request execution changes beyond the current header/payload guardrails.
+- Generalized request execution changes beyond the current header/payload guardrails and unbound-operation support.
 - Open type runtime behavior.
 - Named stream runtime behavior.
 - Spatial runtime behavior.
@@ -66,11 +76,21 @@ V3 model coverage currently passes for:
 - V3 return type parsing used by later runtime work.
 - Binding-parameter metadata exposure for bound operations.
 
+V3 service coverage currently passes for:
+
+- V3 Verbose JSON request headers for read and write requests.
+- Explicit failure for non-Verbose JSON payloads.
+- Unbound function path-style URL generation.
+- Deterministic ordering of unbound function parameters.
+- Representative primitive literal formatting for unbound function parameters.
+- Unbound action `POST` method, request headers, and request body shape.
+- Unbound action response handling for return and no-return cases.
+
 V3 tests still intentionally remain `xfail` for:
 
 - Open type and stream metadata exposure.
 - Spatial primitive resolution.
-- Bound and unbound runtime operation behavior in the service layer.
+- Bound runtime operation behavior in the service layer.
 - Named stream service APIs.
 - Open type CRUD behavior.
 
@@ -86,7 +106,7 @@ V3 tests still intentionally remain `xfail` for:
 
 ## Next Likely Milestones
 
-1. Define V3 unbound function URL generation.
-2. Add bound function and action model-to-service integration.
-3. Add named stream surface and request behavior.
-4. Decide the supported scope for open types and spatial types.
+1. Add bound function and action model-to-service integration.
+2. Add named stream surface and request behavior.
+3. Decide the supported scope for open types and spatial types.
+4. Expand V3 runtime support beyond the current unbound-operation slice only when tests require it.

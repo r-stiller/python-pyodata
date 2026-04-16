@@ -13,6 +13,7 @@ This repository should be approached as a Python OData V2 client library with a 
 - Vendor-specific helpers live in `pyodata/vendor/`.
 - Tests live in `tests/`, including sync and async networking integrations under `tests/integration/networking_libraries/`.
 - User-facing docs live in `docs/usage/`.
+- Internal protocol status snapshots live in `V2_PROGRESS.md` and `V3_PROGRESS.md`; use them as orientation for current implementation state, not as a replacement for tests or the public compatibility contract.
 - The effective package and CI contract is defined by `setup.py`, `README.md`, `Makefile`, and `.github/workflows/`.
 
 ## Source Of Truth And Tooling
@@ -44,6 +45,18 @@ This repository should be approached as a Python OData V2 client library with a 
 - Preserve fluent API behavior for entities, query options, filters, function imports, batching, and changesets.
 - Be careful with URL/path encoding, query parameter ordering, JSON payload formatting, and HTTP status handling.
 - Keep sync and async execution behavior consistent where both paths exist.
+
+### `pyodata/v3/model.py`
+
+- Keep V3 changes additive and narrow; this layer currently extends the shared V2 model machinery rather than replacing it.
+- Preserve alias handling, V3 namespace acceptance, and the current `FunctionImport` metadata shape used by the V3 service layer.
+- Avoid speculative parser expansion beyond the behaviors covered by the V3 fixtures and tests.
+
+### `pyodata/v3/service.py`
+
+- Prefer V3-specific request/container classes over broad edits to `pyodata/v2/service.py`.
+- Keep V2 `service.functions.*` behavior unchanged; V3 differences should stay isolated here.
+- Current V3 runtime scope includes explicit header policy, Verbose-JSON-only parsing, and unbound operation invocation only. Bound operations remain deferred unless the task explicitly takes them on.
 
 ### `pyodata/vendor/`
 
@@ -81,6 +94,8 @@ Notes:
 
 - Metadata parsing, schema construction, or type conversion changes: run `tests/test_model_v2*.py`.
 - Service, request construction, entity CRUD, filters, or batching changes: run `tests/test_service_v2.py`.
+- V3 metadata/model changes: run `tests/test_model_v3.py`.
+- V3 service/runtime changes: run `tests/test_service_v3.py` and the most relevant V2 regression coverage, usually `tests/test_service_v2.py`.
 - Client creation, metadata fetch, or sync/async session compatibility changes: run `tests/integration/networking_libraries/`.
 - Vendor-specific changes: run the corresponding vendor tests such as `tests/test_vendor_sap.py` or `tests/test_vendor_microsoft.py`.
 

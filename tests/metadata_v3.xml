@@ -44,6 +44,30 @@
           <Parameter Name="Limit" Type="Edm.Int32" Mode="In" Nullable="false" />
         </FunctionImport>
 
+        <FunctionImport Name="SearchDocumentsCreatedAfter"
+                        ReturnType="Collection(V3Demo.Model.Document)"
+                        EntitySet="Documents"
+                        IsBindable="false"
+                        IsComposable="true"
+                        m:HttpMethod="GET">
+          <Parameter Name="CreatedAfter" Type="Edm.DateTime" Mode="In" Nullable="false" />
+          <Parameter Name="Exact" Type="Edm.Boolean" Mode="In" Nullable="false" />
+        </FunctionImport>
+
+        <FunctionImport Name="ApproveDocuments"
+                        ReturnType="Edm.Boolean"
+                        IsBindable="false"
+                        IsSideEffecting="true"
+                        m:HttpMethod="POST">
+          <Parameter Name="Comment" Type="Edm.String" Mode="In" Nullable="true" />
+          <Parameter Name="Force" Type="Edm.Boolean" Mode="In" Nullable="false" />
+        </FunctionImport>
+
+        <FunctionImport Name="RefreshSearchIndex"
+                        IsBindable="false"
+                        IsSideEffecting="true"
+                        m:HttpMethod="POST" />
+
         <FunctionImport Name="GetPeerDocument"
                         ReturnType="V3Demo.Model.Document"
                         IsBindable="true"
