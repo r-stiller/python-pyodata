@@ -208,6 +208,7 @@ class Types:
             Types.register_type(Typ('Edm.Int64', '0L', EdmLongIntTypTraits()))
             Types.register_type(Typ('Edm.SByte', '0'))
             Types.register_type(Typ('Edm.String', '\'\'', EdmStringTypTraits()))
+            Types.register_type(Typ('Edm.Stream', 'null'))
             Types.register_type(Typ('Edm.Time', 'time\'PT00H00M\''))
             Types.register_type(
                 Typ('Edm.DateTimeOffset', 'datetimeoffset\'1753-01-01T00:00:00Z\'', EdmDateTimeOffsetTypTraits()))
@@ -1672,10 +1673,15 @@ class EntityType(StructType):
 
         self._key = list()
         self._nav_properties = dict()
+        self._has_stream = False
 
     @property
     def key_proprties(self):
         return list(self._key)
+
+    @property
+    def has_stream(self):
+        return self._has_stream
 
     @property
     def nav_proprties(self):
@@ -1689,6 +1695,10 @@ class EntityType(StructType):
     def from_etree(cls, type_node, config: Config):
 
         etype = super(EntityType, cls).from_etree(type_node, config)
+        etype._has_stream = attribute_get_bool(  # pylint: disable=protected-access
+            type_node,
+            'HasStream',
+            metadata_attribute_get_bool(type_node, 'HasStream', False))
 
         for proprty in type_node.xpath('edm:Key/edm:PropertyRef', namespaces=config.namespaces):
             etype._key.append(etype.proprty(proprty.get('Name')))
@@ -2747,6 +2757,10 @@ def attribute_get_bool(node, attr, default):
 
 def sap_attribute_get_bool(node, attr, default):
     return str_to_bool(sap_attribute_get(node, attr), attr, default)
+
+
+def metadata_attribute_get_bool(node, attr, default):
+    return str_to_bool(metadata_attribute_get(node, attr), attr, default)
 
 
 ANNOTATION_NAMESPACES = {

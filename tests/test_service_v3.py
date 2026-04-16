@@ -417,12 +417,91 @@ def test_v3_collection_bound_action_without_return_uses_no_return_handling(schem
     }]
 
 
-@pytest.mark.xfail(reason='Named stream access is not modelled on the service surface yet', strict=True)
+def test_v3_media_stream_access_api_shape(service_v3):
+    request = service_v3.entity_sets.Documents.get_entity(1).media_stream()
+
+    assert isinstance(request, pyodata.v3.service.ODataHttpRequest)
+    assert request.get_path() == 'Documents%281%29/$value'
+
+
 def test_v3_named_stream_access_api_shape(service_v3):
     request = service_v3.entity_sets.Documents.get_entity(1).named_stream('Thumbnail')
 
     assert isinstance(request, pyodata.v3.service.ODataHttpRequest)
-    assert request.get_path() == 'Documents(1)/Thumbnail'
+    assert request.get_path() == 'Documents%281%29/Thumbnail'
+
+
+def test_v3_media_stream_execute_returns_raw_response(schema_v3):
+    connection = _StaticResponseConnection(pyodata.v2.service.ODataHttpResponse(
+        url=f'{URL_ROOT}/Documents(1)/$value',
+        headers={'Content-type': 'application/octet-stream'},
+        status_code=200,
+        content=b'%PDF-1.7'))
+    service = pyodata.v3.service.Service(URL_ROOT, schema_v3, connection)
+
+    response = service.entity_sets.Documents.get_entity(1).media_stream().execute()
+
+    assert response.content == b'%PDF-1.7'
+    assert connection.requests == [{
+        'method': 'GET',
+        'url': f'{URL_ROOT}/Documents%281%29/$value',
+        'headers': {},
+        'params': '',
+        'data': None,
+    }]
+
+
+def test_v3_named_stream_execute_returns_raw_response_from_entity_proxy(schema_v3):
+    connection = _StaticResponseConnection(pyodata.v2.service.ODataHttpResponse(
+        url=f'{URL_ROOT}/Documents(1)/Thumbnail',
+        headers={'Content-type': 'image/png'},
+        status_code=200,
+        content=b'\x89PNG'))
+    service = pyodata.v3.service.Service(URL_ROOT, schema_v3, connection)
+    entity = pyodata.v3.service.EntityProxy(
+        service,
+        service.schema.entity_set('Documents'),
+        service.schema.entity_type('Document'),
+        {'Id': 1, 'Title': 'Spec draft'})
+
+    response = entity.named_stream('Thumbnail').execute()
+
+    assert response.content == b'\x89PNG'
+    assert connection.requests == [{
+        'method': 'GET',
+        'url': f'{URL_ROOT}/Documents(1)/Thumbnail',
+        'headers': {},
+        'params': '',
+        'data': None,
+    }]
+
+
+def test_v3_media_stream_requires_has_stream_metadata(service_v3):
+    entity = pyodata.v3.service.EntityProxy(
+        service_v3,
+        service_v3.schema.entity_set('Documents'),
+        service_v3.schema.entity_type('Document'),
+        {'Id': 1, 'Title': 'Spec draft'})
+    entity._entity_type._has_stream = False  # pylint: disable=protected-access
+
+    with pytest.raises(PyODataException) as exc_info:
+        entity.media_stream()
+
+    assert str(exc_info.value) == 'Entity type Document does not declare HasStream'
+
+
+def test_v3_named_stream_access_rejects_unknown_property(service_v3):
+    with pytest.raises(PyODataException) as exc_info:
+        service_v3.entity_sets.Documents.get_entity(1).named_stream('Missing')
+
+    assert str(exc_info.value) == 'Property Missing is not declared in Document entity type'
+
+
+def test_v3_named_stream_access_rejects_non_stream_property(service_v3):
+    with pytest.raises(PyODataException) as exc_info:
+        service_v3.entity_sets.Documents.get_entity(1).named_stream('Title')
+
+    assert str(exc_info.value) == 'Property Title of Document is not declared as Edm.Stream'
 
 
 @pytest.mark.xfail(reason='Open type CRUD still rejects undeclared properties', strict=True)

@@ -187,6 +187,26 @@ def _resolve_entity_set_for_return_type(service, function_import, bound_entity_s
     return None
 
 
+class StreamRequest(ODataHttpRequest):
+    """Raw-content request used for V3 media and named stream access."""
+
+    def __init__(self, url, connection, handler, path, method='GET', headers=None, body=None, request_policy=None):
+        super(StreamRequest, self).__init__(
+            url, connection, handler, headers=headers, request_policy=request_policy)
+        self._path = path
+        self._method = method
+        self._body = body
+
+    def get_path(self):
+        return self._path
+
+    def get_method(self):
+        return self._method
+
+    def get_body(self):
+        return self._body
+
+
 def _operation_response_handler(service, function_import, response, bound_entity_set=None):
     """Get operation response from HTTP Response."""
 
@@ -246,6 +266,47 @@ def _operation_response_handler(service, function_import, response, bound_entity
     return response_data
 
 
+def _stream_response_handler(description, response):
+    """Return the raw HTTP response for stream reads."""
+
+    if response.status_code != 200:
+        raise HttpError(
+            f'HTTP GET for {description} failed with status code {response.status_code}',
+            response)
+
+    return response
+
+
+def _build_stream_read_request(service, path, description, connection=None):
+    conn = connection or service.connection
+
+    return StreamRequest(
+        service.url,
+        conn,
+        partial(_stream_response_handler, description),
+        path,
+        request_policy=service.request_policy)
+
+
+def _get_declared_named_stream(entity_type, name):
+    try:
+        proprty = entity_type.proprty(name)
+    except KeyError as ex:
+        raise PyODataException(
+            f'Property {name} is not declared in {entity_type.name} entity type') from ex
+
+    if proprty.type_info.name != 'Edm.Stream':
+        raise PyODataException(
+            f'Property {name} of {entity_type.name} is not declared as Edm.Stream')
+
+    return proprty
+
+
+def _validate_media_entity(entity_type):
+    if not getattr(entity_type, 'has_stream', False):
+        raise PyODataException(f'Entity type {entity_type.name} does not declare HasStream')
+
+
 class _BoundOperationTargetMixin:
     """Shared V3-bound operation access for entity and entity-set contexts."""
 
@@ -292,12 +353,46 @@ class EntityGetRequest(_BoundOperationTargetMixin, _EntityGetRequest):
             False,
         )
 
+    def media_stream(self, connection=None):
+        entity_type = self._entity_set_proxy._entity_set.entity_type  # pylint: disable=protected-access
+        _validate_media_entity(entity_type)
+
+        path = urljoin(self.get_path(), '/$value')
+        return _build_stream_read_request(self._service, path, f'$value of Entity {self.get_path()}', connection)
+
+    def named_stream(self, name, connection=None):
+        entity_type = self._entity_set_proxy._entity_set.entity_type  # pylint: disable=protected-access
+        _get_declared_named_stream(entity_type, name)
+
+        path = urljoin(self.get_path(), name)
+        return _build_stream_read_request(
+            self._service,
+            path,
+            f'named stream {name} of Entity {self.get_path()}',
+            connection)
+
 
 class EntityProxy(_BoundOperationTargetMixin, _EntityProxy):
     """V3 entity proxy with bound operations available from entity instances."""
 
     def _get_bound_operation_context(self):
         return self.get_path(), self._entity_set, self._entity_type, False
+
+    def media_stream(self, connection=None):
+        _validate_media_entity(self._entity_type)
+
+        path = urljoin(self.get_path(), '/$value')
+        return _build_stream_read_request(self._service, path, f'$value of Entity {self.get_path()}', connection)
+
+    def named_stream(self, name, connection=None):
+        _get_declared_named_stream(self._entity_type, name)
+
+        path = urljoin(self.get_path(), name)
+        return _build_stream_read_request(
+            self._service,
+            path,
+            f'named stream {name} of Entity {self.get_path()}',
+            connection)
 
 
 class EntitySetProxy(_BoundOperationTargetMixin, _EntitySetProxy):

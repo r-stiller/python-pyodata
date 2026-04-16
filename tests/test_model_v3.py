@@ -157,13 +157,19 @@ def test_v3_function_import_return_types_and_binding_parameters_are_parsed(schem
     assert approve_all.binding_parameter.typ.is_collection is True
 
 
-@pytest.mark.xfail(reason='Open type and stream metadata are not exposed on entity types yet', strict=True)
-def test_v3_open_type_and_stream_metadata_are_exposed(schema_v3):
+def test_v3_stream_metadata_is_exposed(schema_v3):
+    document = schema_v3.entity_type('Document')
+
+    assert document.has_stream is True
+    assert document.proprty('Thumbnail').type_info == TypeInfo(None, 'Edm.Stream', False)
+    assert document.proprty('Thumbnail').typ.name == 'Edm.Stream'
+
+
+@pytest.mark.xfail(reason='Open type metadata is not exposed on entity types yet', strict=True)
+def test_v3_open_type_metadata_is_exposed(schema_v3):
     document = schema_v3.entity_type('Document')
 
     assert document.is_open_type is True
-    assert document.has_stream is True
-    assert document.proprty('Thumbnail').typ.name == 'Edm.Stream'
 
 
 @pytest.mark.xfail(reason='Spatial primitives are not registered in the current type system yet', strict=True)
