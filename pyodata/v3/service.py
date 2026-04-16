@@ -70,7 +70,7 @@ class Service(_Service):
 
 
 class FunctionRequest(_FunctionRequest):
-    """V3 unbound operation request with path-style functions and POST actions."""
+    """V3 unbound operation request with query-string functions and POST actions."""
 
     def __init__(self, url, connection, handler, function_import, request_policy=None):
         super(FunctionRequest, self).__init__(
@@ -108,23 +108,24 @@ class FunctionRequest(_FunctionRequest):
         if self._function_import.is_side_effecting:
             return self._function_import.name
 
-        if not self._parameters:
-            return self._function_import.name
-
-        arguments = ','.join(
-            f'{parameter.name}={parameter.to_literal(self._parameters[parameter.name])}'
-            for parameter in self._ordered_parameters)
-
-        return f'{self._function_import.name}({arguments})'
+        return self._function_import.name
 
     def get_query_params(self):
-        return ODataHttpRequest.get_query_params(self)
+        if self._function_import.is_side_effecting:
+            return ODataHttpRequest.get_query_params(self)
+
+        query_params = ODataHttpRequest.get_query_params(self)
+        query_params.update({
+            parameter.name: parameter.to_literal(self._parameters[parameter.name])
+            for parameter in self._ordered_parameters
+        })
+        return query_params
 
     def get_method(self):
         if self._function_import.is_side_effecting:
             return 'POST'
 
-        return self._function_import.http_method
+        return self._function_import.http_method or 'GET'
 
     def get_body(self):
         if not self._function_import.is_side_effecting:
@@ -172,6 +173,9 @@ class BoundOperationRequest(FunctionRequest):
             for parameter in self._ordered_parameters)
 
         return f'{operation_path}({arguments})'
+
+    def get_query_params(self):
+        return ODataHttpRequest.get_query_params(self)
 
 
 def _get_response_text(response):
@@ -275,6 +279,17 @@ def _operation_response_handler(service, function_import, response, bound_entity
         entity_set = _resolve_entity_set_for_return_type(service, function_import, bound_entity_set)
         if entity_set is not None:
             return EntityProxy(service, entity_set, function_import.return_type, response_data)
+
+    if isinstance(function_import.return_type, model.Collection):
+        item_type = function_import.return_type.item_type
+        collection_data = response_data.get('results', response_data)
+
+        if isinstance(item_type, model.EntityType):
+            entity_set = _resolve_entity_set_for_return_type(service, function_import, bound_entity_set)
+            if entity_set is not None:
+                return [EntityProxy(service, entity_set, item_type, entity) for entity in collection_data]
+
+        return collection_data
 
     return response_data
 

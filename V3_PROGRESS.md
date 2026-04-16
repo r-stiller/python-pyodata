@@ -45,7 +45,7 @@ The repository now has an explicit first OData V3 milestone: opt-in bootstrap vi
 ### Session 5 unbound operation invocation
 
 - Added a V3-specific unbound operation container in `pyodata.v3.service`.
-- Added V3 unbound function invocation with path-style parameter formatting such as `Func(A=1,B='x')`.
+- Added V3 unbound function invocation with query-string parameter formatting such as `Func?A=1&B='x'`, matching the public V3 reference service.
 - Kept parameter ordering deterministic by following metadata declaration order.
 - Reused existing parameter literal conversion for V3 function URL arguments.
 - Added V3 unbound action invocation with `POST` semantics.
@@ -102,6 +102,15 @@ The repository now has an explicit first OData V3 milestone: opt-in bootstrap vi
 - Added a narrow shared async response-normalization path so both async-context-manager clients and awaitable-response clients work through the same client/bootstrap code paths.
 - Updated `README.md`, `docs/usage/`, `docs/protocol_references.rst`, and `CHANGELOG.md` so the repository’s documented protocol support matches the actual V3 milestone now in tree.
 
+### Session 11 reference-service alignment
+
+- Added captured fixtures for the public `services.odata.org` V3 reference services under `tests/fixtures/reference_services_v3/`.
+- Added optional live smoke tests gated by `PYODATA_RUN_REFERENCE_SERVICE_LIVE=1` so default CI remains offline.
+- Expanded V3 metadata coverage to parse the public `OData.svc`, read-write `OData.svc`, and `Northwind` metadata snapshots.
+- Expanded V3 service coverage to exercise public reference-service entity reads, collection queries, named-stream reads, spatial payloads, and unbound function invocation.
+- Updated shared `Edm.DateTime` JSON parsing to accept the ISO timestamp payload shape returned by the public V3 reference service.
+- Added default HTTP-method inference for function imports whose metadata omits `m:HttpMethod`, covering the current public read-write V3 metadata.
+
 ## Intentionally Deferred
 
 The following are not implemented yet:
@@ -135,7 +144,7 @@ V3 service coverage currently passes for:
 
 - V3 Verbose JSON request headers for read and write requests.
 - Explicit failure for non-Verbose JSON payloads.
-- Unbound function path-style URL generation.
+- Unbound function query-string URL generation aligned with the public V3 reference service.
 - Deterministic ordering of unbound function parameters.
 - Representative primitive literal formatting for unbound function parameters.
 - Unbound action `POST` method, request headers, and request body shape.
@@ -166,6 +175,7 @@ V3 networking-library integration coverage currently passes for:
 - Async bootstrap with `httpx.AsyncClient`.
 - Async bootstrap with `aiohttp.ClientSession`.
 - Representative V3 entity reads with Verbose JSON headers for all four supported client integrations.
+- Captured-fixture regression coverage for the public `services.odata.org` V3 `OData.svc` and `Northwind` services.
 
 ## Main Files Involved So Far
 

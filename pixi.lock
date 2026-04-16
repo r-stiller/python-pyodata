@@ -854,7 +854,7 @@ packages:
 - pypi: ./
   name: python-pyodata
   version: 1.12.0
-  sha256: baf48b6d69c4893fca538acb7c1e2a7cf8b0a11dd72c0e0e629d4ef5c66f059e
+  sha256: 3770113351c4bebc03d8280b44448f1b5428ead7af497292fa328fce3099a30c
   requires_python: '>=3.11'
 - conda: https://conda.anaconda.org/conda-forge/noarch/python_abi-3.14-8_cp314.conda
   build_number: 8

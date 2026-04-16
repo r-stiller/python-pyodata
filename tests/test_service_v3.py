@@ -9,11 +9,11 @@ import pyodata
 import pyodata.v2.service
 import pyodata.v3.service
 from pyodata.exceptions import PyODataException
-from pyodata.v3.model import Config, MetadataBuilder, ParserError, PolicyIgnore
-from tests.conftest import contents_of_fixtures_file
 
 
 URL_ROOT = 'http://odatapy.example.com'
+REFERENCE_ODATA_URL_ROOT = 'https://services.odata.org/V3/OData/OData.svc/'
+REFERENCE_NORTHWIND_URL_ROOT = 'https://services.odata.org/V3/Northwind/Northwind.svc/'
 DUMMY_CONNECTION = object()
 
 
@@ -76,24 +76,6 @@ class _StaticResponseConnection:
             'data': data,
         })
         return self.response
-
-
-@pytest.fixture
-def metadata_v3():
-    """Minimal, realistic OData V3 metadata."""
-
-    return contents_of_fixtures_file('metadata_v3.xml')
-
-
-@pytest.fixture
-def schema_v3(metadata_v3):
-    """V3 schema parsed with property errors downgraded for baseline request-shape tests."""
-
-    config = Config(custom_error_policies={
-        ParserError.PROPERTY: PolicyIgnore(),
-    })
-
-    return MetadataBuilder(metadata_v3, config=config).build()
 
 
 @pytest.fixture
@@ -227,17 +209,17 @@ def test_v3_non_verbose_json_payload_fails_clearly(schema_v3):
         'expected a top-level "d" envelope in the response payload')
 
 
-def test_v3_unbound_function_uses_path_style_parameters(service_v3):
+def test_v3_unbound_function_uses_query_string_parameters(service_v3):
     request = service_v3.functions.SearchDocuments.parameter('Query', 'draft').parameter('Limit', 2)
 
-    assert request.get_path() == "SearchDocuments(Query='draft',Limit=2)"
-    assert request.get_query_params() == {}
+    assert request.get_path() == 'SearchDocuments'
+    assert request.get_query_params() == {'Query': "'draft'", 'Limit': '2'}
 
 
 def test_v3_unbound_function_parameter_order_is_metadata_stable(service_v3):
     request = service_v3.functions.SearchDocuments.parameter('Limit', 2).parameter('Query', 'draft')
 
-    assert request.get_path() == "SearchDocuments(Query='draft',Limit=2)"
+    assert list(request.get_query_params().items()) == [('Query', "'draft'"), ('Limit', '2')]
 
 
 def test_v3_unbound_function_reuses_existing_literal_formatting(service_v3):
@@ -245,8 +227,184 @@ def test_v3_unbound_function_reuses_existing_literal_formatting(service_v3):
         'Exact', True).parameter(
         'CreatedAfter', datetime.datetime(2017, 12, 24, 18, 0, tzinfo=datetime.timezone.utc))
 
-    assert request.get_path() == (
-        "SearchDocumentsCreatedAfter(CreatedAfter=datetime'2017-12-24T18:00:00',Exact=true)")
+    assert request.get_path() == 'SearchDocumentsCreatedAfter'
+    assert request.get_query_params() == {
+        'CreatedAfter': "datetime'2017-12-24T18:00:00'",
+        'Exact': 'true',
+    }
+
+
+def test_reference_v3_odata_unbound_function_uses_query_string_semantics(
+        reference_v3_odata_metadata,
+        reference_v3_odata_products_by_rating_payload):
+    connection = _StaticResponseConnection(pyodata.v2.service.ODataHttpResponse(
+        url=f'{REFERENCE_ODATA_URL_ROOT}GetProductsByRating?rating=5',
+        headers={'Content-type': 'application/json;odata=verbose;charset=utf-8'},
+        status_code=200,
+        content=reference_v3_odata_products_by_rating_payload))
+    service = pyodata.Client(
+        REFERENCE_ODATA_URL_ROOT,
+        connection,
+        odata_version=3,
+        metadata=reference_v3_odata_metadata)
+
+    request = service.functions.GetProductsByRating.parameter('rating', 5)
+    products = request.execute()
+
+    assert request.get_path() == 'GetProductsByRating'
+    assert request.get_query_params() == {'rating': '5'}
+    assert products[0].ID == 7
+    assert products[0].Name == 'DVD Player'
+    assert connection.requests == [{
+        'method': 'GET',
+        'url': f'{REFERENCE_ODATA_URL_ROOT}GetProductsByRating',
+        'headers': {
+            'Accept': 'application/json;odata=verbose',
+            'MaxDataServiceVersion': '3.0',
+        },
+        'params': 'rating=5',
+        'data': None,
+    }]
+
+
+def test_reference_v3_odata_entity_read_accepts_iso_datetime_payloads(
+        reference_v3_odata_metadata,
+        reference_v3_odata_product_payload):
+    connection = _StaticResponseConnection(pyodata.v2.service.ODataHttpResponse(
+        url=f'{REFERENCE_ODATA_URL_ROOT}Products(1)',
+        headers={'Content-type': 'application/json;odata=verbose;charset=utf-8'},
+        status_code=200,
+        content=reference_v3_odata_product_payload))
+    service = pyodata.Client(
+        REFERENCE_ODATA_URL_ROOT,
+        connection,
+        odata_version=3,
+        metadata=reference_v3_odata_metadata)
+
+    product = service.entity_sets.Products.get_entity(1, encode_path=False).execute()
+
+    assert product.ID == 1
+    assert product.Name == 'Milk'
+    assert product.ReleaseDate == datetime.datetime(1995, 10, 1, 0, 0, tzinfo=datetime.timezone.utc)
+
+
+def test_reference_v3_odata_open_type_entity_read_from_captured_payload(
+        reference_v3_odata_metadata,
+        reference_v3_odata_category_payload):
+    connection = _StaticResponseConnection(pyodata.v2.service.ODataHttpResponse(
+        url=f'{REFERENCE_ODATA_URL_ROOT}Categories(0)',
+        headers={'Content-type': 'application/json;odata=verbose;charset=utf-8'},
+        status_code=200,
+        content=reference_v3_odata_category_payload))
+    service = pyodata.Client(
+        REFERENCE_ODATA_URL_ROOT,
+        connection,
+        odata_version=3,
+        metadata=reference_v3_odata_metadata)
+
+    category = service.entity_sets.Categories.get_entity(0, encode_path=False).execute()
+
+    assert category.ID == 0
+    assert category.Name == 'Food'
+    assert category._entity_type.is_open_type is True  # pylint: disable=protected-access
+
+
+def test_reference_v3_odata_spatial_property_materializes_from_captured_payload(
+        reference_v3_odata_metadata,
+        reference_v3_odata_supplier_payload):
+    connection = _StaticResponseConnection(pyodata.v2.service.ODataHttpResponse(
+        url=f'{REFERENCE_ODATA_URL_ROOT}Suppliers(0)',
+        headers={'Content-type': 'application/json;odata=verbose;charset=utf-8'},
+        status_code=200,
+        content=reference_v3_odata_supplier_payload))
+    service = pyodata.Client(
+        REFERENCE_ODATA_URL_ROOT,
+        connection,
+        odata_version=3,
+        metadata=reference_v3_odata_metadata)
+
+    supplier = service.entity_sets.Suppliers.get_entity(0, encode_path=False).execute()
+
+    assert supplier.ID == 0
+    assert supplier.Location['type'] == 'Point'
+    assert supplier.Location['coordinates'] == [-122.03547668457, 47.6316604614258]
+
+
+def test_reference_v3_odata_named_stream_reads_raw_captured_response(
+        reference_v3_odata_metadata,
+        reference_v3_odata_named_stream_payload):
+    connection = _StaticResponseConnection(pyodata.v2.service.ODataHttpResponse(
+        url=f'{REFERENCE_ODATA_URL_ROOT}PersonDetails(1)/Photo',
+        headers={'Content-type': 'application/xml; charset=utf-8'},
+        status_code=200,
+        content=reference_v3_odata_named_stream_payload))
+    service = pyodata.Client(
+        REFERENCE_ODATA_URL_ROOT,
+        connection,
+        odata_version=3,
+        metadata=reference_v3_odata_metadata)
+
+    response = service.entity_sets.PersonDetails.get_entity(1, encode_path=False).named_stream('Photo').execute()
+
+    assert response.content == b'Test named stream data 3'
+    assert connection.requests == [{
+        'method': 'GET',
+        'url': f'{REFERENCE_ODATA_URL_ROOT}PersonDetails(1)/Photo',
+        'headers': {},
+        'params': '',
+        'data': None,
+    }]
+
+
+def test_reference_v3_northwind_entity_read_from_captured_payload(
+        reference_v3_northwind_metadata,
+        reference_v3_northwind_product_payload):
+    connection = _StaticResponseConnection(pyodata.v2.service.ODataHttpResponse(
+        url=f'{REFERENCE_NORTHWIND_URL_ROOT}Products(1)',
+        headers={'Content-type': 'application/json;odata=verbose;charset=utf-8'},
+        status_code=200,
+        content=reference_v3_northwind_product_payload))
+    service = pyodata.Client(
+        REFERENCE_NORTHWIND_URL_ROOT,
+        connection,
+        odata_version=3,
+        metadata=reference_v3_northwind_metadata)
+
+    product = service.entity_sets.Products.get_entity(1, encode_path=False).execute()
+
+    assert product.ProductID == 1
+    assert product.ProductName == 'Chai'
+    assert connection.requests[0]['url'] == f'{REFERENCE_NORTHWIND_URL_ROOT}Products(1)'
+
+
+def test_reference_v3_northwind_entity_query_from_captured_payload(
+        reference_v3_northwind_metadata,
+        reference_v3_northwind_products_top_2_payload):
+    connection = _StaticResponseConnection(pyodata.v2.service.ODataHttpResponse(
+        url=f'{REFERENCE_NORTHWIND_URL_ROOT}Products?$top=2',
+        headers={'Content-type': 'application/json;odata=verbose;charset=utf-8'},
+        status_code=200,
+        content=reference_v3_northwind_products_top_2_payload))
+    service = pyodata.Client(
+        REFERENCE_NORTHWIND_URL_ROOT,
+        connection,
+        odata_version=3,
+        metadata=reference_v3_northwind_metadata)
+
+    products = service.entity_sets.Products.get_entities().top(2).execute()
+
+    assert len(products) == 2
+    assert [product.ProductID for product in products] == [1, 2]
+    assert connection.requests == [{
+        'method': 'GET',
+        'url': f'{REFERENCE_NORTHWIND_URL_ROOT}Products',
+        'headers': {
+            'Accept': 'application/json;odata=verbose',
+            'MaxDataServiceVersion': '3.0',
+        },
+        'params': '%24top=2',
+        'data': None,
+    }]
 
 
 def test_v3_unbound_action_uses_post_and_json_request_shape(schema_v3):

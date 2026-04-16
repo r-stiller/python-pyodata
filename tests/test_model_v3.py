@@ -5,26 +5,22 @@ import io
 import pytest
 from lxml import etree
 
-from pyodata.v3.model import Config, MetadataBuilder, ParserError, PolicyIgnore, TypeInfo, Types
-from tests.conftest import contents_of_fixtures_file
+from pyodata.v3.model import Config, MetadataBuilder, TypeInfo, Types
 
 
 @pytest.fixture
-def metadata_v3():
-    """Minimal, realistic OData V3 metadata."""
-
-    return contents_of_fixtures_file('metadata_v3.xml')
+def reference_schema_v3_odata(reference_v3_odata_metadata):
+    return MetadataBuilder(reference_v3_odata_metadata, config=Config()).build()
 
 
 @pytest.fixture
-def schema_v3(metadata_v3):
-    """V3 schema parsed with property errors downgraded for baseline coverage."""
+def reference_schema_v3_odata_readwrite(reference_v3_odata_readwrite_metadata):
+    return MetadataBuilder(reference_v3_odata_readwrite_metadata, config=Config()).build()
 
-    config = Config(custom_error_policies={
-        ParserError.PROPERTY: PolicyIgnore(),
-    })
 
-    return MetadataBuilder(metadata_v3, config=config).build()
+@pytest.fixture
+def reference_schema_v3_northwind(reference_v3_northwind_metadata):
+    return MetadataBuilder(reference_v3_northwind_metadata, config=Config()).build()
 
 
 def test_v3_builder_accepts_microsoft_2009_11_edm_namespace(schema_v3):
@@ -186,3 +182,48 @@ def test_v3_spatial_primitive_is_resolved(schema_v3):
     assert document.proprty('Footprint').typ.name == 'Edm.GeometryPoint'
     assert document.proprty('Location').type_info == TypeInfo(None, 'Edm.GeographyPoint', False)
     assert document.proprty('Footprint').type_info == TypeInfo(None, 'Edm.GeometryPoint', False)
+
+
+def test_reference_v3_odata_metadata_exposes_public_service_features(reference_schema_v3_odata):
+    category = reference_schema_v3_odata.entity_type('Category')
+    person_detail = reference_schema_v3_odata.entity_type('PersonDetail')
+    supplier = reference_schema_v3_odata.entity_type('Supplier')
+    advertisement = reference_schema_v3_odata.entity_type('Advertisement')
+    get_products_by_rating = reference_schema_v3_odata.function_import('GetProductsByRating')
+
+    assert category.is_open_type is True
+    assert person_detail.proprty('Photo').type_info == TypeInfo(None, 'Edm.Stream', False)
+    assert advertisement.has_stream is True
+    assert supplier.proprty('Location').type_info == TypeInfo(None, 'Edm.GeographyPoint', False)
+    assert get_products_by_rating.http_method == 'GET'
+    assert get_products_by_rating.is_bindable is False
+    assert get_products_by_rating.is_side_effecting is False
+    assert get_products_by_rating.return_type.is_collection is True
+    assert [parameter.name for parameter in get_products_by_rating.parameters] == ['rating']
+
+
+def test_reference_v3_odata_readwrite_metadata_defaults_missing_http_methods(reference_schema_v3_odata_readwrite):
+    discount = reference_schema_v3_odata_readwrite.function_import('Discount')
+    increase_salaries = reference_schema_v3_odata_readwrite.function_import('IncreaseSalaries')
+
+    assert discount.http_method == 'GET'
+    assert discount.is_bindable is True
+    assert discount.is_side_effecting is False
+    assert discount.binding_parameter.name == 'product'
+    assert discount.binding_parameter.typ.name == 'Product'
+    assert discount.container_name == 'DemoService'
+
+    assert increase_salaries.http_method == 'POST'
+    assert increase_salaries.is_bindable is False
+    assert increase_salaries.is_side_effecting is True
+    assert increase_salaries.return_type is None
+    assert [parameter.name for parameter in increase_salaries.parameters] == ['percentage']
+
+
+def test_reference_v3_northwind_metadata_parses_large_real_world_service(reference_schema_v3_northwind):
+    assert set(reference_schema_v3_northwind.namespaces) == {'NorthwindModel', 'ODataWebV3.Northwind.Model'}
+    assert reference_schema_v3_northwind.entity_set('Products').entity_type.name == 'Product'
+    assert reference_schema_v3_northwind.entity_set('Categories').entity_type.name == 'Category'
+    assert reference_schema_v3_northwind.entity_type('Product').proprty('ProductName').type_info == (
+        TypeInfo(None, 'Edm.String', False))
+    assert len(reference_schema_v3_northwind.entity_sets) > 20

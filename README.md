@@ -59,6 +59,9 @@ Python module without any additional configuration steps needed.
   querying and CRUD, function and action invocation, batch for the supported
   JSON request and response shapes, named and default stream reads, open types,
   and the tested `requests`, `httpx`, and `aiohttp` integrations.
+- The V3 regression suite now includes captured fixtures from the public
+  `services.odata.org` V3 reference services, plus opt-in live smoke coverage
+  behind an environment variable.
 - OData V3 does not yet provide JSON Light or Atom support, broad stream upload
   and write support, or general spatial URL literal and operation-parameter
   support.

@@ -412,6 +412,28 @@ def parse_datetime_literal(value):
                 raise PyODataModelError(f'Cannot decode datetime from value {value}.')
 
 
+def parse_datetime_json(value, edm_type_name):
+    if not isinstance(value, str):
+        raise PyODataModelError(
+            f"Malformed value {value} for primitive {edm_type_name} type."
+            " Expected format is /Date(<ticks>[±<offset>])/ or an ISO 8601 timestamp.")
+
+    if value.startswith('/Date('):
+        return None
+
+    try:
+        parsed = datetime.datetime.fromisoformat(value.replace('Z', '+00:00'))
+    except ValueError as ex:
+        raise PyODataModelError(
+            f"Malformed value {value} for primitive {edm_type_name} type."
+            " Expected format is /Date(<ticks>[±<offset>])/ or an ISO 8601 timestamp.") from ex
+
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=datetime.timezone.utc)
+
+    return parsed.astimezone(datetime.timezone.utc)
+
+
 class EdmDateTimeTypTraits(EdmPrefixedTypTraits):
     """Edm.DateTime traits
 
@@ -465,6 +487,10 @@ class EdmDateTimeTypTraits(EdmPrefixedTypTraits):
 
         if value is None:
             return None
+
+        parsed = parse_datetime_json(value, 'Edm.DateTime')
+        if parsed is not None:
+            return parsed
 
         matches = re.match(r"^/Date\((?P<milliseconds_since_epoch>-?\d+)(?P<offset_in_minutes>[+-]\d+)?\)/$", value)
         try:
@@ -2683,7 +2709,6 @@ class FunctionImport(Identifier):
     def from_etree(function_import_node, config: Config):
         name = function_import_node.get('Name')
         entity_set = function_import_node.get('EntitySet')
-        http_method = metadata_attribute_get(function_import_node, 'HttpMethod')
         aliases = getattr(config, 'type_aliases', None)
         is_bindable = attribute_get_bool(function_import_node, 'IsBindable', False)
         is_side_effecting = attribute_get_bool(function_import_node, 'IsSideEffecting', False)
@@ -2696,6 +2721,13 @@ class FunctionImport(Identifier):
 
         rt_type = function_import_node.get('ReturnType')
         rt_info = None if rt_type is None else Types.parse_type_name(rt_type, aliases)
+        http_method = metadata_attribute_get(function_import_node, 'HttpMethod')
+        if http_method is None:
+            if is_side_effecting or rt_info is None:
+                http_method = 'POST'
+                is_side_effecting = True
+            else:
+                http_method = 'GET'
 
         parameters = dict()
         for index, param in enumerate(function_import_node.xpath('edm:Parameter', namespaces=config.namespaces)):

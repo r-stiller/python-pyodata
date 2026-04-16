@@ -12,14 +12,8 @@ import pyodata.v3.service
 from pyodata import Client
 from pyodata.exceptions import PyODataException, HttpError
 from pyodata.v2.model import ParserError, PolicyWarning, PolicyFatal, PolicyIgnore, Config
-from tests.conftest import contents_of_fixtures_file
 
 SERVICE_URL = ''
-
-
-@pytest.fixture
-def metadata_v3():
-    return contents_of_fixtures_file('metadata_v3.xml')
 
 
 @pytest.mark.asyncio

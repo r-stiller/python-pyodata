@@ -6,6 +6,20 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- Captured OData V3 reference-service fixtures and opt-in live smoke tests for
+  `https://services.odata.org/V3/OData/OData.svc/` and
+  `https://services.odata.org/V3/Northwind/Northwind.svc/`.
+
+### Changed
+- OData V3 unbound function invocation now follows the public reference-service
+  query-string parameter shape instead of path-style arguments.
+- OData V3 `Edm.DateTime` payload parsing now accepts the ISO timestamp shape
+  returned by the public `services.odata.org` V3 reference service.
+- Function-import parsing now assigns V3-compatible default HTTP methods when
+  metadata omits `m:HttpMethod`, including the current public read-write
+  reference-service cases.
+
 ## [1.12.0]
 
 ### Added

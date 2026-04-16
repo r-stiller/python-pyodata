@@ -1,16 +1,18 @@
 """PyTest Fixtures"""
 import logging
 import os
+from pathlib import Path
 
 import pytest
 
 from pyodata.v2.model import schema_from_xml, Types
+from pyodata.v3.model import Config as V3Config
+from pyodata.v3.model import MetadataBuilder as V3MetadataBuilder
 
 
 def contents_of_fixtures_file(file_name):
-    path_to_current_file = os.path.realpath(__file__)
-    current_directory = os.path.split(path_to_current_file)[0]
-    path_to_file = os.path.join(current_directory, file_name)
+    current_directory = Path(os.path.realpath(__file__)).parent
+    path_to_file = current_directory / file_name
 
     with open(path_to_file, 'rb') as md_file:
         return md_file.read()
@@ -20,6 +22,63 @@ def contents_of_fixtures_file(file_name):
 def metadata():
     """Example OData metadata"""
     return contents_of_fixtures_file("metadata.xml")
+
+
+@pytest.fixture
+def metadata_v3():
+    """Compact synthetic V3 metadata used by baseline tests."""
+
+    return contents_of_fixtures_file('metadata_v3.xml')
+
+
+@pytest.fixture
+def reference_v3_odata_metadata():
+    return contents_of_fixtures_file('fixtures/reference_services_v3/odata_service_metadata.xml')
+
+
+@pytest.fixture
+def reference_v3_odata_readwrite_metadata():
+    return contents_of_fixtures_file('fixtures/reference_services_v3/odata_service_readwrite_metadata.xml')
+
+
+@pytest.fixture
+def reference_v3_northwind_metadata():
+    return contents_of_fixtures_file('fixtures/reference_services_v3/northwind_metadata.xml')
+
+
+@pytest.fixture
+def reference_v3_odata_category_payload():
+    return contents_of_fixtures_file('fixtures/reference_services_v3/odata_category_0.json')
+
+
+@pytest.fixture
+def reference_v3_odata_supplier_payload():
+    return contents_of_fixtures_file('fixtures/reference_services_v3/odata_supplier_0.json')
+
+
+@pytest.fixture
+def reference_v3_odata_product_payload():
+    return contents_of_fixtures_file('fixtures/reference_services_v3/odata_product_1.json')
+
+
+@pytest.fixture
+def reference_v3_odata_products_by_rating_payload():
+    return contents_of_fixtures_file('fixtures/reference_services_v3/odata_get_products_by_rating_rating_5.json')
+
+
+@pytest.fixture
+def reference_v3_odata_named_stream_payload():
+    return contents_of_fixtures_file('fixtures/reference_services_v3/odata_persondetail_1_photo.bin')
+
+
+@pytest.fixture
+def reference_v3_northwind_product_payload():
+    return contents_of_fixtures_file('fixtures/reference_services_v3/northwind_product_1.json')
+
+
+@pytest.fixture
+def reference_v3_northwind_products_top_2_payload():
+    return contents_of_fixtures_file('fixtures/reference_services_v3/northwind_products_top_2.json')
 
 
 @pytest.fixture
@@ -120,6 +179,14 @@ def schema(metadata):
     # pylint: disable=redefined-outer-name
 
     return schema_from_xml(metadata)
+
+
+@pytest.fixture
+def schema_v3(metadata_v3):
+    """Parsed synthetic V3 metadata used by baseline service and model tests."""
+
+    config = V3Config()
+    return V3MetadataBuilder(metadata_v3, config=config).build()
 
 
 def assert_logging_policy(mock_warning, *args):
