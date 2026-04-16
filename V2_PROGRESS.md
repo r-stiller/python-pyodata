@@ -24,7 +24,7 @@ It is the only protocol version advertised as supported in [README.md](/C:/Users
 - EDMX parsing for the supported V2 namespace variants.
 - Schema construction for entity types, complex types, enum types, entity sets, associations, and association sets.
 - Property metadata parsing including nullability, precision, scale, fixed-length, and SAP-specific attributes.
-- Shared metadata parsing for media-entity stream flags used by the existing V2 runtime surface.
+- Shared metadata parsing for entity-type flags used by the existing V2 runtime surface and by the current V3 layer, including media-entity stream flags and open-type markers as metadata only.
 - Navigation property and association resolution.
 - Function import metadata parsing for V2 function imports.
 - Error-policy based metadata parsing via configurable parser policies.
@@ -65,6 +65,7 @@ These are not necessarily defects, but they define the practical scope of the cu
 - The compatibility contract is driven by the existing V2 public API and test suite.
 - Vendor-specific behavior should stay isolated in [pyodata/vendor](/C:/Users/r.stiller/dev/python-pyodata/pyodata/vendor).
 - Metadata handling includes SAP-oriented extensions that are already part of the effective V2 surface.
+- Shared model objects now also carry some metadata bits used by the V3 layer, but V2 runtime behavior remains the stable strict baseline.
 - Changes in [pyodata/v2/model.py](/C:/Users/r.stiller/dev/python-pyodata/pyodata/v2/model.py) and [pyodata/v2/service.py](/C:/Users/r.stiller/dev/python-pyodata/pyodata/v2/service.py) carry broad regression risk and should stay narrow.
 
 ## Main Files

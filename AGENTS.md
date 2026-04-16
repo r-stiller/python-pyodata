@@ -38,6 +38,7 @@ This repository should be approached as a Python OData V2 client library with a 
 
 - Keep changes narrow. This file is large and central to metadata parsing behavior.
 - Preserve namespace detection, schema building, type lookup, serialization, null handling, and error-policy behavior unless the task explicitly changes them.
+- Treat shared entity-type metadata bits used by V3, such as `HasStream` and `OpenType`, as compatibility-sensitive; adding metadata exposure here must not silently weaken V2 runtime behavior.
 - Assume small parsing changes can affect many tests; validate accordingly.
 
 ### `pyodata/v2/service.py`
@@ -49,17 +50,18 @@ This repository should be approached as a Python OData V2 client library with a 
 ### `pyodata/v3/model.py`
 
 - Keep V3 changes additive and narrow; this layer currently extends the shared V2 model machinery rather than replacing it.
-- Preserve alias handling, V3 namespace acceptance, the current stream-related metadata exposure (`HasStream` and `Edm.Stream`), and the current `FunctionImport` metadata shape used by the V3 service layer, including bindability flags, binding-parameter identification, entity-set-path data, and container-name metadata used for bound actions.
+- Preserve alias handling, V3 namespace acceptance, the current stream-related metadata exposure (`HasStream` and `Edm.Stream`), open-type metadata exposure (`OpenType`), and the current `FunctionImport` metadata shape used by the V3 service layer, including bindability flags, binding-parameter identification, entity-set-path data, and container-name metadata used for bound actions.
 - Avoid speculative parser expansion beyond the behaviors covered by the V3 fixtures and tests.
 
 ### `pyodata/v3/service.py`
 
 - Prefer V3-specific request/container classes over broad edits to `pyodata/v2/service.py`.
 - Keep V2 `service.functions.*` behavior unchanged; V3 differences should stay isolated here.
-- Current V3 runtime scope includes explicit header policy, Verbose-JSON-only parsing, unbound operation invocation, the current bound operation slice from entity and entity-set contexts, and explicit stream access for media entities and named streams.
+- Current V3 runtime scope includes explicit header policy, Verbose-JSON-only parsing, unbound operation invocation, the current bound operation slice from entity and entity-set contexts, explicit stream access for media entities and named streams, and open-type runtime handling for dynamic properties on open entity types.
 - Preserve the current V3 distinction between unbound and bound operations, including implicit binding parameters, path-style bound functions, and qualified bound-action segments.
 - Keep default media-stream and named-stream access on explicit V3 proxy methods; do not broaden V2 proxy semantics to match.
-- Open-type runtime behavior, spatial runtime behavior, and broader stream write/upload surfaces remain deferred unless the task explicitly takes them on.
+- Preserve the current open-type boundary: dynamic/undeclared properties are retained and writable only for open V3 entity types, while closed types keep strict undeclared-property failures.
+- Spatial runtime behavior and broader stream write/upload surfaces remain deferred unless the task explicitly takes them on.
 
 ### `pyodata/vendor/`
 

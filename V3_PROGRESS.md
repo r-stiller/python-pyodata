@@ -6,7 +6,7 @@ It is intended as an internal engineering snapshot, not as end-user documentatio
 
 ## Current Status
 
-The repository now has explicit bootstrap paths for OData V3 metadata plus a narrow but usable runtime slice covering operation invocation, default media-stream reads for `HasStream` entities, and named-stream reads for `Edm.Stream` properties.
+The repository now has explicit bootstrap paths for OData V3 metadata plus a narrow but usable runtime slice covering operation invocation, default media-stream reads for `HasStream` entities, named-stream reads for `Edm.Stream` properties, and open-type runtime behavior for dynamic properties on open entity types.
 
 ## Implemented
 
@@ -74,12 +74,21 @@ The repository now has explicit bootstrap paths for OData V3 metadata plus a nar
 - Added explicit failures when callers request unknown properties or properties not declared as `Edm.Stream`.
 - Kept V2 runtime behavior unchanged by isolating the stream access surface in `pyodata.v3.service` and limiting shared model changes to the metadata/type information required by the V3 tests.
 
+### Session 8 open types
+
+- Exposed `OpenType="true"` on parsed V3 entity types as `EntityType.is_open_type`.
+- Kept the shared model addition narrow so the metadata bit is available to V3 without weakening V2 runtime behavior.
+- Added V3 entity materialization support that retains undeclared properties from Verbose JSON payloads when the entity type is open.
+- Kept dynamic properties on the existing proxy surface by caching them and exposing them through normal attribute access.
+- Added V3 create/update support that allows undeclared properties only for open entity types.
+- Preserved strict undeclared-property failures for closed entity types.
+- Kept V2 behavior unchanged by isolating the read/write relaxation in `pyodata.v3.service`.
+
 ## Intentionally Deferred
 
 The following are not implemented yet:
 
 - Generalized request execution changes beyond the current header/payload guardrails and unbound-operation support.
-- Open type runtime behavior.
 - Spatial runtime behavior.
 - Named-stream writes and any broader upload API.
 - Broad parser redesign across all protocol versions.
@@ -95,6 +104,7 @@ V3 model coverage currently passes for:
 - V3 return type parsing used by later runtime work.
 - Binding-parameter metadata exposure for bound operations.
 - `HasStream` exposure on V3 entity types.
+- `OpenType` exposure on V3 entity types.
 - `Edm.Stream` property resolution for the fixture metadata.
 
 V3 service coverage currently passes for:
@@ -115,12 +125,14 @@ V3 service coverage currently passes for:
 - Named-stream request construction for V3 `Edm.Stream` properties.
 - Raw-content stream reads for default and named streams.
 - Explicit failures for unknown or non-stream named-stream access.
+- Dynamic-property retention during open-type entity materialization.
+- Dynamic-property access through the existing entity-proxy attribute/cache behavior.
+- Open-type create/update payload pass-through for undeclared properties.
+- Closed-type rejection of undeclared properties.
 
 V3 tests still intentionally remain `xfail` for:
 
-- Open type metadata exposure.
 - Spatial primitive resolution.
-- Open type CRUD behavior.
 
 ## Main Files Involved So Far
 
@@ -135,6 +147,6 @@ V3 tests still intentionally remain `xfail` for:
 ## Next Likely Milestones
 
 1. Decide whether the compact V3 scope needs named-stream writes or whether reads remain sufficient.
-2. Decide the supported scope for open types and spatial types.
-3. Expand V3 runtime support beyond the current operation-and-stream slice only when tests require it.
-4. Revisit broader request/query composition only if later fixtures require more than the current narrow bound, unbound, and explicit stream support.
+2. Decide the supported scope for spatial types.
+3. Expand V3 runtime support beyond the current operation, stream, and open-type slice only when tests require it.
+4. Revisit broader request/query composition only if later fixtures require more than the current narrow bound, unbound, explicit stream, and open-type support.

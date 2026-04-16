@@ -10,7 +10,9 @@ from pyodata.exceptions import HttpError, PyODataException
 from pyodata.v2.service import (
     LOGGER_NAME,
     EntityContainer as _EntityContainer,
+    EntityCreateRequest as _EntityCreateRequest,
     EntityGetRequest as _EntityGetRequest,
+    EntityModifyRequest as _EntityModifyRequest,
     EntityProxy as _EntityProxy,
     EntitySetProxy as _EntitySetProxy,
     FunctionContainer as _FunctionContainer,
@@ -307,6 +309,65 @@ def _validate_media_entity(entity_type):
         raise PyODataException(f'Entity type {entity_type.name} does not declare HasStream')
 
 
+def _is_open_entity_type(entity_type):
+    return getattr(entity_type, 'is_open_type', False)
+
+
+def _normalize_dynamic_value(value):
+    if isinstance(value, _EntityProxy):
+        return value._get_body()  # pylint: disable=protected-access
+
+    if isinstance(value, list):
+        return [_normalize_dynamic_value(item) for item in value]
+
+    if isinstance(value, dict):
+        return {key: _normalize_dynamic_value(item) for key, item in value.items()}
+
+    return value
+
+
+def _build_entity_values(entity_type, entity):
+    if isinstance(entity, list):
+        return [_build_entity_values(entity_type, item) for item in entity]
+
+    values = {}
+    for key, val in entity.items():
+        try:
+            val = entity_type.proprty(key).to_json(val)
+        except KeyError:
+            try:
+                nav_prop = entity_type.nav_proprty(key)
+                val = _build_entity_values(nav_prop.typ, val)
+            except KeyError as ex:
+                if not _is_open_entity_type(entity_type):
+                    raise PyODataException(
+                        f'Property {key} is not declared in {entity_type.name} entity type') from ex
+
+                val = _normalize_dynamic_value(val)
+
+        values[key] = val
+
+    return values
+
+
+def _cache_dynamic_properties(cache, entity_type, proprties):
+    if proprties is None or not _is_open_entity_type(entity_type):
+        return
+
+    for key, value in proprties.items():
+        if key == '__metadata':
+            continue
+
+        if entity_type.has_proprty(key):
+            continue
+
+        try:
+            entity_type.nav_proprty(key)
+            continue
+        except KeyError:
+            cache[key] = value
+
+
 class _BoundOperationTargetMixin:
     """Shared V3-bound operation access for entity and entity-set contexts."""
 
@@ -375,6 +436,10 @@ class EntityGetRequest(_BoundOperationTargetMixin, _EntityGetRequest):
 class EntityProxy(_BoundOperationTargetMixin, _EntityProxy):
     """V3 entity proxy with bound operations available from entity instances."""
 
+    def __init__(self, service, entity_set, entity_type, proprties=None, entity_key=None, etag=None):
+        super(EntityProxy, self).__init__(service, entity_set, entity_type, proprties, entity_key=entity_key, etag=etag)
+        _cache_dynamic_properties(self._cache, self._entity_type, proprties)  # pylint: disable=protected-access
+
     def _get_bound_operation_context(self):
         return self.get_path(), self._entity_set, self._entity_type, False
 
@@ -422,6 +487,113 @@ class EntitySetProxy(_BoundOperationTargetMixin, _EntitySetProxy):
         self._logger.info('Getting entity %s for key %s and args %s', self._entity_set.entity_type.name, key, args)
 
         return EntityGetRequest(get_entity_handler, entity_key, self, encode_path=encode_path)
+
+    def get_entities(self, encode_path=True):
+        """Get some, potentially all entities."""
+
+        def get_entities_handler(response):
+            if response.status_code != HTTP_CODE_OK:
+                raise HttpError('HTTP GET for Entity Set {0} failed with status code {1}'
+                                .format(self._name, response.status_code), response)
+
+            content = response.json()
+
+            if isinstance(content, int):
+                return content
+
+            entities = self._service.extract_json_payload_from_content(content)
+            total_count = None
+            next_url = None
+
+            if isinstance(entities, dict):
+                if '__count' in entities:
+                    total_count = int(entities['__count'])
+                if '__next' in entities:
+                    next_url = entities['__next']
+                entities = entities['results']
+
+            self._logger.info('Fetched %d entities', len(entities))
+
+            result = ListWithTotalCount(total_count, next_url)
+            for props in entities:
+                entity = EntityProxy(self._service, self._entity_set, self._entity_set.entity_type, props)
+                result.append(entity)
+
+            return result
+
+        entity_set_name = self._alias if self._alias is not None else self._entity_set.name
+        return GetEntitySetRequest(self._service.url, self._service.connection, get_entities_handler,
+                                   self._parent_last_segment + entity_set_name, self._entity_set.entity_type,
+                                   request_policy=self._service.request_policy,
+                                   encode_path=encode_path)
+
+    def create_entity(self, return_code=HTTP_CODE_CREATED):
+        """Creates a new entity in the given entity-set."""
+
+        def create_entity_handler(response):
+            if response.status_code != return_code:
+                raise HttpError('HTTP POST for Entity Set {0} failed with status code {1}'
+                                .format(self._name, response.status_code), response)
+
+            entity_props = self._service.extract_json_payload(response)
+            etag = response.headers.get('ETag', None)
+
+            return EntityProxy(self._service, self._entity_set, self._entity_set.entity_type, entity_props, etag=etag)
+
+        return EntityCreateRequest(self._service.url, self._service.connection, create_entity_handler, self._entity_set,
+                                   self.last_segment, request_policy=self._service.request_policy)
+
+    def update_entity(self, key=None, method=None, encode_path=True, **kwargs):
+        """Updates an existing entity in the given entity-set."""
+
+        def update_entity_handler(response):
+            if response.status_code != 204:
+                raise HttpError('HTTP modify request for Entity Set {} failed with status code {}'
+                                .format(self._name, response.status_code), response)
+
+        if key is not None and isinstance(key, EntityKey):
+            entity_key = key
+        else:
+            entity_key = EntityKey(self._entity_set.entity_type, key, **kwargs)
+
+        self._logger.info('Updating entity %s for key %s and args %s', self._entity_set.entity_type.name, key, kwargs)
+
+        if method is None:
+            method = self._service.config['http']['update_method']
+
+        return EntityModifyRequest(self._service.url, self._service.connection, update_entity_handler, self._entity_set,
+                                   entity_key, method=method, encode_path=encode_path,
+                                   request_policy=self._service.request_policy)
+
+
+class EntityCreateRequest(_EntityCreateRequest):
+    """V3 entity create request with open-type write support."""
+
+    def set(self, **kwargs):
+        self._logger.info(kwargs)
+        self._values = _build_entity_values(self._entity_type, kwargs)
+        return self
+
+
+class EntityModifyRequest(_EntityModifyRequest):
+    """V3 entity update request with open-type write support."""
+
+    def set(self, **kwargs):
+        self._logger.info(kwargs)
+
+        for key, val in kwargs.items():
+            try:
+                val = self._entity_type.proprty(key).to_json(val)
+            except KeyError as ex:
+                if not _is_open_entity_type(self._entity_type):
+                    raise PyODataException(
+                        f'Property {key} is not declared in {self._entity_type.name} entity type') from ex
+
+                val = _normalize_dynamic_value(val)
+
+            self._values[key] = val
+
+        return self
 
 
 class EntityContainer(_EntityContainer):

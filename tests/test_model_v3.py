@@ -165,11 +165,12 @@ def test_v3_stream_metadata_is_exposed(schema_v3):
     assert document.proprty('Thumbnail').typ.name == 'Edm.Stream'
 
 
-@pytest.mark.xfail(reason='Open type metadata is not exposed on entity types yet', strict=True)
 def test_v3_open_type_metadata_is_exposed(schema_v3):
     document = schema_v3.entity_type('Document')
+    closed_document = schema_v3.entity_type('ClosedDocument')
 
     assert document.is_open_type is True
+    assert closed_document.is_open_type is False
 
 
 @pytest.mark.xfail(reason='Spatial primitives are not registered in the current type system yet', strict=True)

@@ -1674,6 +1674,7 @@ class EntityType(StructType):
         self._key = list()
         self._nav_properties = dict()
         self._has_stream = False
+        self._is_open_type = False
 
     @property
     def key_proprties(self):
@@ -1682,6 +1683,10 @@ class EntityType(StructType):
     @property
     def has_stream(self):
         return self._has_stream
+
+    @property
+    def is_open_type(self):
+        return self._is_open_type
 
     @property
     def nav_proprties(self):
@@ -1699,6 +1704,10 @@ class EntityType(StructType):
             type_node,
             'HasStream',
             metadata_attribute_get_bool(type_node, 'HasStream', False))
+        etype._is_open_type = attribute_get_bool(  # pylint: disable=protected-access
+            type_node,
+            'OpenType',
+            metadata_attribute_get_bool(type_node, 'OpenType', False))
 
         for proprty in type_node.xpath('edm:Key/edm:PropertyRef', namespaces=config.namespaces):
             etype._key.append(etype.proprty(proprty.get('Name')))

@@ -504,7 +504,48 @@ def test_v3_named_stream_access_rejects_non_stream_property(service_v3):
     assert str(exc_info.value) == 'Property Title of Document is not declared as Edm.Stream'
 
 
-@pytest.mark.xfail(reason='Open type CRUD still rejects undeclared properties', strict=True)
+def test_v3_open_type_entity_proxy_retains_dynamic_properties(service_v3):
+    entity = pyodata.v3.service.EntityProxy(
+        service_v3,
+        service_v3.schema.entity_set('Documents'),
+        service_v3.schema.entity_type('Document'),
+        {'Id': 1, 'Title': 'Spec draft', 'DynamicTag': 'red', 'DynamicCount': 3})
+
+    assert entity.Title == 'Spec draft'
+    assert entity.DynamicTag == 'red'
+    assert entity.DynamicCount == 3
+    assert entity._cache['DynamicTag'] == 'red'  # pylint: disable=protected-access
+
+
+def test_v3_get_entity_materializes_dynamic_properties_for_open_type(schema_v3):
+    connection = _StaticResponseConnection(pyodata.v2.service.ODataHttpResponse(
+        url=f'{URL_ROOT}/Documents(1)',
+        headers={'Content-type': 'application/json'},
+        status_code=200,
+        content=b'{"d": {"Id": 1, "Title": "Spec draft", "DynamicTag": "red"}}'))
+    service = pyodata.v3.service.Service(URL_ROOT, schema_v3, connection)
+
+    entity = service.entity_sets.Documents.get_entity(1).execute()
+
+    assert isinstance(entity, pyodata.v3.service.EntityProxy)
+    assert entity.DynamicTag == 'red'
+
+
+def test_v3_get_entities_materializes_dynamic_properties_for_open_type(schema_v3):
+    connection = _StaticResponseConnection(pyodata.v2.service.ODataHttpResponse(
+        url=f'{URL_ROOT}/Documents',
+        headers={'Content-type': 'application/json'},
+        status_code=200,
+        content=b'{"d": {"results": [{"Id": 1, "Title": "Spec draft", "DynamicTag": "red"}]}}'))
+    service = pyodata.v3.service.Service(URL_ROOT, schema_v3, connection)
+
+    entities = service.entity_sets.Documents.get_entities().execute()
+
+    assert len(entities) == 1
+    assert isinstance(entities[0], pyodata.v3.service.EntityProxy)
+    assert entities[0].DynamicTag == 'red'
+
+
 def test_v3_open_type_crud_allows_dynamic_properties(service_v3):
     create_request = service_v3.entity_sets.Documents.create_entity().set(
         Id=1,
@@ -517,3 +558,35 @@ def test_v3_open_type_crud_allows_dynamic_properties(service_v3):
 
     assert create_request.get_body() == '{"Id": 1, "Title": "Spec draft", "DynamicTag": "red"}'
     assert update_request.get_body() == '{"DynamicTag": "green"}'
+
+
+def test_v3_closed_type_entity_proxy_keeps_strict_property_behavior(service_v3):
+    entity = pyodata.v3.service.EntityProxy(
+        service_v3,
+        service_v3.schema.entity_set('ClosedDocuments'),
+        service_v3.schema.entity_type('ClosedDocument'),
+        {'Id': 1, 'Title': 'Spec draft', 'DynamicTag': 'red'})
+
+    assert 'DynamicTag' not in entity._cache  # pylint: disable=protected-access
+
+    with pytest.raises(AttributeError) as exc_info:
+        _ = entity.DynamicTag
+
+    assert str(exc_info.value) == 'EntityType ClosedDocument does not have Property DynamicTag: \'DynamicTag\''
+
+
+def test_v3_closed_type_crud_rejects_dynamic_properties(service_v3):
+    with pytest.raises(PyODataException) as create_exc_info:
+        service_v3.entity_sets.ClosedDocuments.create_entity().set(
+            Id=1,
+            Title='Spec draft',
+            DynamicTag='red',
+        )
+
+    with pytest.raises(PyODataException) as update_exc_info:
+        service_v3.entity_sets.ClosedDocuments.update_entity(1).set(
+            DynamicTag='green',
+        )
+
+    assert str(create_exc_info.value) == 'Property DynamicTag is not declared in ClosedDocument entity type'
+    assert str(update_exc_info.value) == 'Property DynamicTag is not declared in ClosedDocument entity type'

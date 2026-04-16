@@ -31,8 +31,17 @@
         <Property Name="Thumbnail" Type="Edm.Stream" Nullable="true" />
       </EntityType>
 
+      <EntityType Name="ClosedDocument">
+        <Key>
+          <PropertyRef Name="Id" />
+        </Key>
+        <Property Name="Id" Type="Edm.Int32" Nullable="false" />
+        <Property Name="Title" Type="Edm.String" Nullable="false" />
+      </EntityType>
+
       <EntityContainer Name="V3DemoContainer" m:IsDefaultEntityContainer="true">
         <EntitySet Name="Documents" EntityType="V3Demo.Model.Document" />
+        <EntitySet Name="ClosedDocuments" EntityType="V3Demo.Model.ClosedDocument" />
 
         <FunctionImport Name="SearchDocuments"
                         ReturnType="Collection(V3Demo.Model.Document)"
