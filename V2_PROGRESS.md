@@ -24,6 +24,7 @@ It is the only protocol version advertised as supported in [README.md](/C:/Users
 - EDMX parsing for the supported V2 namespace variants.
 - Schema construction for entity types, complex types, enum types, entity sets, associations, and association sets.
 - Property metadata parsing including nullability, precision, scale, fixed-length, and SAP-specific attributes.
+- Shared metadata parsing for media-entity stream flags used by the existing V2 runtime surface.
 - Navigation property and association resolution.
 - Function import metadata parsing for V2 function imports.
 - Error-policy based metadata parsing via configurable parser policies.
@@ -36,6 +37,7 @@ It is the only protocol version advertised as supported in [README.md](/C:/Users
 - Query construction with filter/order/select/expand/top/skip and related query options.
 - Entity create, update, and delete requests.
 - Function import invocation with V2 request semantics.
+- Media-entity `$value` access on entity and navigation-based entity proxies.
 - URL/path/body extraction helpers for external HTTP execution.
 - Batch requests and changesets.
 - Response parsing for entities, collections, and primitive results.

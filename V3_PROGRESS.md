@@ -6,7 +6,7 @@ It is intended as an internal engineering snapshot, not as end-user documentatio
 
 ## Current Status
 
-The repository now has explicit bootstrap paths for OData V3 metadata plus a narrow but usable operation-invocation slice in the runtime layer, including both unbound and supported bound operations.
+The repository now has explicit bootstrap paths for OData V3 metadata plus a narrow but usable runtime slice covering operation invocation, default media-stream reads for `HasStream` entities, and named-stream reads for `Edm.Stream` properties.
 
 ## Implemented
 
@@ -64,14 +64,24 @@ The repository now has explicit bootstrap paths for OData V3 metadata plus a nar
 - Reused the current Verbose JSON response handling for bound operations, including return and no-return cases covered by the tests.
 - Kept the V2 runtime surface unchanged by isolating the bound-operation work in `pyodata.v3.service` and using only a narrow shared metadata addition for container-name tracking.
 
+### Session 7 media entities and named streams
+
+- Exposed `HasStream` on parsed V3 entity types.
+- Exposed `Edm.Stream` properties through the shared type system in a form usable by V3 runtime code.
+- Added explicit V3 `media_stream()` access for default media streams on `HasStream` entities.
+- Added explicit V3 `named_stream(name)` access for named streams declared as `Edm.Stream`.
+- Kept stream responses as raw HTTP content rather than routing them through the Verbose JSON payload handler.
+- Added explicit failures when callers request unknown properties or properties not declared as `Edm.Stream`.
+- Kept V2 runtime behavior unchanged by isolating the stream access surface in `pyodata.v3.service` and limiting shared model changes to the metadata/type information required by the V3 tests.
+
 ## Intentionally Deferred
 
 The following are not implemented yet:
 
 - Generalized request execution changes beyond the current header/payload guardrails and unbound-operation support.
 - Open type runtime behavior.
-- Named stream runtime behavior.
 - Spatial runtime behavior.
+- Named-stream writes and any broader upload API.
 - Broad parser redesign across all protocol versions.
 
 ## Test Status Snapshot
@@ -84,6 +94,8 @@ V3 model coverage currently passes for:
 - V3 function import metadata flags.
 - V3 return type parsing used by later runtime work.
 - Binding-parameter metadata exposure for bound operations.
+- `HasStream` exposure on V3 entity types.
+- `Edm.Stream` property resolution for the fixture metadata.
 
 V3 service coverage currently passes for:
 
@@ -99,12 +111,15 @@ V3 service coverage currently passes for:
 - Rejection of explicit binding-parameter arguments on bound operations.
 - Collection-bound function URL generation and deterministic parameter ordering.
 - Collection-bound action response handling for no-return cases.
+- Default media-stream request construction for V3 media entities.
+- Named-stream request construction for V3 `Edm.Stream` properties.
+- Raw-content stream reads for default and named streams.
+- Explicit failures for unknown or non-stream named-stream access.
 
 V3 tests still intentionally remain `xfail` for:
 
-- Open type and stream metadata exposure.
+- Open type metadata exposure.
 - Spatial primitive resolution.
-- Named stream service APIs.
 - Open type CRUD behavior.
 
 ## Main Files Involved So Far
@@ -119,7 +134,7 @@ V3 tests still intentionally remain `xfail` for:
 
 ## Next Likely Milestones
 
-1. Add named stream surface and request behavior.
+1. Decide whether the compact V3 scope needs named-stream writes or whether reads remain sufficient.
 2. Decide the supported scope for open types and spatial types.
-3. Expand V3 runtime support beyond the current operation-invocation slice only when tests require it.
-4. Revisit broader request/query composition only if later fixtures require more than the current narrow bound and unbound operation support.
+3. Expand V3 runtime support beyond the current operation-and-stream slice only when tests require it.
+4. Revisit broader request/query composition only if later fixtures require more than the current narrow bound, unbound, and explicit stream support.
