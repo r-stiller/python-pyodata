@@ -28,6 +28,7 @@
         <Property Name="LocalInfo" Type="Self.LocalInfo" Nullable="true" />
         <Property Name="ExternalInfo" Type="Ext.TagInfo" Nullable="true" />
         <Property Name="Location" Type="Edm.GeographyPoint" Nullable="true" />
+        <Property Name="Footprint" Type="Edm.GeometryPoint" Nullable="true" />
         <Property Name="Thumbnail" Type="Edm.Stream" Nullable="true" />
       </EntityType>
 
@@ -61,6 +62,15 @@
                         m:HttpMethod="GET">
           <Parameter Name="CreatedAfter" Type="Edm.DateTime" Mode="In" Nullable="false" />
           <Parameter Name="Exact" Type="Edm.Boolean" Mode="In" Nullable="false" />
+        </FunctionImport>
+
+        <FunctionImport Name="SearchDocumentsNearby"
+                        ReturnType="Collection(V3Demo.Model.Document)"
+                        EntitySet="Documents"
+                        IsBindable="false"
+                        IsComposable="true"
+                        m:HttpMethod="GET">
+          <Parameter Name="Center" Type="Edm.GeographyPoint" Mode="In" Nullable="false" />
         </FunctionImport>
 
         <FunctionImport Name="ApproveDocuments"

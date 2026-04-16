@@ -1,15 +1,95 @@
 """OData V3 metadata facade with V3-specific alias collection hooks."""
 
+import copy
 import io
 import warnings
+from collections.abc import Mapping
 
 from lxml import etree
 
-from pyodata.exceptions import PyODataParserError
+from pyodata.exceptions import PyODataException, PyODataParserError
 from pyodata.v2.model import *  # noqa: F401,F403
 from pyodata.v2.model import Config as _Config
 from pyodata.v2.model import MetadataBuilder as _MetadataBuilder
-from pyodata.v2.model import ParserError, PolicyIgnore, Schema
+from pyodata.v2.model import ParserError, PolicyIgnore, Schema, Typ, TypTraits, Types
+
+
+def _copy_spatial_value(value):
+    if isinstance(value, list):
+        return [_copy_spatial_value(item) for item in value]
+
+    if isinstance(value, Mapping):
+        return {key: _copy_spatial_value(item) for key, item in value.items()}
+
+    return copy.deepcopy(value)
+
+
+class _SpatialTypTraits(TypTraits):
+    """Opaque JSON-compatible round-trip handling for V3 spatial primitives."""
+
+    def __init__(self, type_name):
+        super().__init__()
+        self._type_name = type_name
+
+    def _reject_literal_conversion(self):
+        raise PyODataException(
+            f'{self._type_name} does not support URL literal conversion in OData V3')
+
+    def to_literal(self, value):
+        self._reject_literal_conversion()
+
+    def from_json(self, value):
+        if value is None:
+            return None
+
+        if not isinstance(value, Mapping):
+            raise PyODataException(
+                f'{self._type_name} expects a JSON object payload, got {type(value)}')
+
+        return _copy_spatial_value(value)
+
+    def to_json(self, value):
+        if value is None:
+            return None
+
+        if not isinstance(value, Mapping):
+            raise PyODataException(
+                f'{self._type_name} expects a mapping value, got {type(value)}')
+
+        return _copy_spatial_value(value)
+
+    def from_literal(self, value):
+        if value in (None, 'null'):
+            return None
+
+        self._reject_literal_conversion()
+
+
+V3_SPATIAL_PRIMITIVE_TYPES = (
+    'Edm.Geography',
+    'Edm.GeographyPoint',
+    'Edm.GeographyLineString',
+    'Edm.GeographyPolygon',
+    'Edm.GeographyMultiPoint',
+    'Edm.GeographyMultiLineString',
+    'Edm.GeographyMultiPolygon',
+    'Edm.GeographyCollection',
+    'Edm.Geometry',
+    'Edm.GeometryPoint',
+    'Edm.GeometryLineString',
+    'Edm.GeometryPolygon',
+    'Edm.GeometryMultiPoint',
+    'Edm.GeometryMultiLineString',
+    'Edm.GeometryMultiPolygon',
+    'Edm.GeometryCollection',
+)
+
+
+def register_v3_primitive_types():
+    """Register the narrow V3-only primitive set on the shared type registry."""
+
+    for type_name in V3_SPATIAL_PRIMITIVE_TYPES:
+        Types.register_type(Typ(type_name, 'null', _SpatialTypTraits(type_name)))
 
 
 class Config(_Config):
@@ -46,6 +126,8 @@ class MetadataBuilder(_MetadataBuilder):
 
     def build(self):
         """Build model from the XML metadata."""
+
+        register_v3_primitive_types()
 
         if isinstance(self._xml, str):
             mdf = io.StringIO(self._xml)

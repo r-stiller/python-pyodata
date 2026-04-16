@@ -1,6 +1,7 @@
 """V3 service baseline tests."""
 
 import datetime
+import json
 
 import pytest
 
@@ -558,6 +559,99 @@ def test_v3_open_type_crud_allows_dynamic_properties(service_v3):
 
     assert create_request.get_body() == '{"Id": 1, "Title": "Spec draft", "DynamicTag": "red"}'
     assert update_request.get_body() == '{"DynamicTag": "green"}'
+
+
+def test_v3_spatial_properties_materialize_from_verbose_json(schema_v3):
+    location = {
+        'type': 'Point',
+        'coordinates': [14.42076, 50.08804],
+    }
+    footprint = {
+        'type': 'Point',
+        'coordinates': [14.421, 50.088],
+    }
+    response_payload = json.dumps({
+        'd': {
+            'Id': 1,
+            'Title': 'Spec draft',
+            'Location': location,
+            'Footprint': footprint,
+        }
+    }).encode('utf-8')
+    connection = _StaticResponseConnection(pyodata.v2.service.ODataHttpResponse(
+        url=f'{URL_ROOT}/Documents(1)',
+        headers={'Content-type': 'application/json'},
+        status_code=200,
+        content=response_payload))
+    service = pyodata.v3.service.Service(URL_ROOT, schema_v3, connection)
+
+    entity = service.entity_sets.Documents.get_entity(1).execute()
+
+    assert entity.Location == location
+    assert entity.Footprint == footprint
+    assert entity._cache['Location'] == location  # pylint: disable=protected-access
+
+
+def test_v3_spatial_properties_round_trip_in_create_update_payloads(service_v3):
+    location = {
+        'type': 'Point',
+        'coordinates': [14.42076, 50.08804],
+    }
+    footprint = {
+        'type': 'Point',
+        'coordinates': [14.421, 50.088],
+    }
+
+    create_request = service_v3.entity_sets.Documents.create_entity().set(
+        Id=1,
+        Title='Spec draft',
+        Location=location,
+        Footprint=footprint,
+    )
+    update_request = service_v3.entity_sets.Documents.update_entity(1).set(
+        Location=location,
+    )
+
+    assert create_request.get_body() == json.dumps({
+        'Id': 1,
+        'Title': 'Spec draft',
+        'Location': location,
+        'Footprint': footprint,
+    })
+    assert update_request.get_body() == json.dumps({
+        'Location': location,
+    })
+
+
+def test_v3_spatial_values_fail_clearly_for_url_literals_and_filters(service_v3):
+    spatial_value = {
+        'type': 'Point',
+        'coordinates': [14.42076, 50.08804],
+    }
+
+    with pytest.raises(PyODataException) as literal_exc_info:
+        service_v3.schema.entity_type('Document').proprty('Location').to_literal(spatial_value)
+
+    with pytest.raises(PyODataException) as filter_exc_info:
+        service_v3.entity_sets.Documents.get_entities().filter(Location=spatial_value)
+
+    assert str(literal_exc_info.value) == (
+        'Edm.GeographyPoint does not support URL literal conversion in OData V3')
+    assert str(filter_exc_info.value) == (
+        'Edm.GeographyPoint does not support URL literal conversion in OData V3')
+
+
+def test_v3_spatial_operation_parameters_fail_clearly(service_v3):
+    spatial_value = {
+        'type': 'Point',
+        'coordinates': [14.42076, 50.08804],
+    }
+
+    with pytest.raises(PyODataException) as exc_info:
+        service_v3.functions.SearchDocumentsNearby.parameter('Center', spatial_value)
+
+    assert str(exc_info.value) == (
+        'OData V3 operation parameter Center of type Edm.GeographyPoint is not supported')
 
 
 def test_v3_closed_type_entity_proxy_keeps_strict_property_behavior(service_v3):

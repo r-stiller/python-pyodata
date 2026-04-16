@@ -5,7 +5,7 @@ import io
 import pytest
 from lxml import etree
 
-from pyodata.v3.model import Config, MetadataBuilder, NullType, ParserError, PolicyIgnore, TypeInfo
+from pyodata.v3.model import Config, MetadataBuilder, ParserError, PolicyIgnore, TypeInfo, Types
 from tests.conftest import contents_of_fixtures_file
 
 
@@ -173,9 +173,16 @@ def test_v3_open_type_metadata_is_exposed(schema_v3):
     assert closed_document.is_open_type is False
 
 
-@pytest.mark.xfail(reason='Spatial primitives are not registered in the current type system yet', strict=True)
+def test_v3_spatial_primitive_types_are_registered(schema_v3):
+    assert Types.from_name('Edm.GeographyPoint').name == 'Edm.GeographyPoint'
+    assert Types.from_name('Edm.GeometryPoint').name == 'Edm.GeometryPoint'
+    assert Types.from_name('Collection(Edm.GeographyPoint)').item_type.name == 'Edm.GeographyPoint'
+
+
 def test_v3_spatial_primitive_is_resolved(schema_v3):
     document = schema_v3.entity_type('Document')
 
-    assert not isinstance(document.proprty('Location').typ, NullType)
     assert document.proprty('Location').typ.name == 'Edm.GeographyPoint'
+    assert document.proprty('Footprint').typ.name == 'Edm.GeometryPoint'
+    assert document.proprty('Location').type_info == TypeInfo(None, 'Edm.GeographyPoint', False)
+    assert document.proprty('Footprint').type_info == TypeInfo(None, 'Edm.GeometryPoint', False)

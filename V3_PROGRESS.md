@@ -6,7 +6,7 @@ It is intended as an internal engineering snapshot, not as end-user documentatio
 
 ## Current Status
 
-The repository now has explicit bootstrap paths for OData V3 metadata plus a narrow but usable runtime slice covering operation invocation, default media-stream reads for `HasStream` entities, named-stream reads for `Edm.Stream` properties, and open-type runtime behavior for dynamic properties on open entity types.
+The repository now has explicit bootstrap paths for OData V3 metadata plus a narrow but usable runtime slice covering operation invocation, default media-stream reads for `HasStream` entities, named-stream reads for `Edm.Stream` properties, open-type runtime behavior for dynamic properties on open entity types, and narrow spatial primitive support for metadata lookup plus opaque payload round-trip.
 
 ## Implemented
 
@@ -84,12 +84,25 @@ The repository now has explicit bootstrap paths for OData V3 metadata plus a nar
 - Preserved strict undeclared-property failures for closed entity types.
 - Kept V2 behavior unchanged by isolating the read/write relaxation in `pyodata.v3.service`.
 
+### Session 9 primitive and spatial coverage
+
+- Added V3-only primitive registration for the currently tested spatial primitive family, including `Edm.GeographyPoint` and `Edm.GeometryPoint`.
+- Kept the implementation narrow by registering these types from `pyodata.v3.model` onto the shared type registry rather than redesigning the common type system.
+- Added opaque JSON-compatible spatial type traits that accept and return stable Python mappings for Verbose JSON payloads.
+- Added V3 entity materialization support for the tested spatial property payloads without introducing custom Python geometry classes.
+- Added V3 create/update serialization support that round-trips the tested spatial mappings back into JSON request bodies.
+- Added explicit failures for unsupported spatial URL literal usage rather than guessing a V3 URI literal format.
+- Added explicit failures for unsupported spatial operation-parameter usage rather than guessing V3 function/action parameter encoding.
+- Kept V2 runtime behavior unchanged by isolating the new primitive/runtime behavior in the V3 facade layer.
+
 ## Intentionally Deferred
 
 The following are not implemented yet:
 
 - Generalized request execution changes beyond the current header/payload guardrails and unbound-operation support.
-- Spatial runtime behavior.
+- Spatial URL/key literal support.
+- Spatial query and filter syntax.
+- Spatial function/action parameter encoding.
 - Named-stream writes and any broader upload API.
 - Broad parser redesign across all protocol versions.
 
@@ -106,6 +119,8 @@ V3 model coverage currently passes for:
 - `HasStream` exposure on V3 entity types.
 - `OpenType` exposure on V3 entity types.
 - `Edm.Stream` property resolution for the fixture metadata.
+- V3-only spatial primitive registration and lookup for the current fixture types.
+- Metadata parsing of entity properties declared as `Edm.GeographyPoint` and `Edm.GeometryPoint`.
 
 V3 service coverage currently passes for:
 
@@ -129,10 +144,10 @@ V3 service coverage currently passes for:
 - Dynamic-property access through the existing entity-proxy attribute/cache behavior.
 - Open-type create/update payload pass-through for undeclared properties.
 - Closed-type rejection of undeclared properties.
-
-V3 tests still intentionally remain `xfail` for:
-
-- Spatial primitive resolution.
+- Spatial property materialization from Verbose JSON payloads.
+- Spatial property round-trip in create/update request bodies using opaque mapping values.
+- Explicit failure for unsupported spatial literal/filter usage.
+- Explicit failure for unsupported spatial operation-parameter usage.
 
 ## Main Files Involved So Far
 
@@ -147,6 +162,6 @@ V3 tests still intentionally remain `xfail` for:
 ## Next Likely Milestones
 
 1. Decide whether the compact V3 scope needs named-stream writes or whether reads remain sufficient.
-2. Decide the supported scope for spatial types.
-3. Expand V3 runtime support beyond the current operation, stream, and open-type slice only when tests require it.
-4. Revisit broader request/query composition only if later fixtures require more than the current narrow bound, unbound, explicit stream, and open-type support.
+2. Decide whether spatial support should stay payload-only or expand into key literals, filters, and operation parameters.
+3. Expand V3 runtime support beyond the current operation, stream, open-type, and payload-only spatial slice only when tests require it.
+4. Revisit broader request/query composition only if later fixtures require more than the current narrow bound, unbound, explicit stream, open-type, and payload round-trip support.

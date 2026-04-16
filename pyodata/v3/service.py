@@ -23,6 +23,13 @@ from pyodata.v2.service import (
 )
 
 
+def _is_spatial_type(typ):
+    if typ is None:
+        return False
+
+    return typ.name.startswith('Edm.Geography') or typ.name.startswith('Edm.Geometry')
+
+
 class _ODataV3RequestPolicy(_ODataRequestPolicy):
     """OData V3 request/response policy for the current first milestone."""
 
@@ -89,6 +96,10 @@ class FunctionRequest(_FunctionRequest):
         if param.is_binding_parameter:
             raise PyODataException(
                 f'Bound operation {self._function_import.name} is not available via service.functions')
+
+        if _is_spatial_type(param.typ):
+            raise PyODataException(
+                f'OData V3 operation parameter {param.name} of type {param.typ.name} is not supported')
 
         self._parameters[param.name] = value
         return self
