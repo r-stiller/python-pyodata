@@ -297,7 +297,6 @@ def test_v3_unbound_action_without_return_uses_no_return_handling(schema_v3):
     assert request.execute() is None
 
 
-@pytest.mark.xfail(reason='Bound functions do not have a V3 invocation surface yet', strict=True)
 def test_v3_bound_function_url_shape(service_v3):
     request = service_v3.entity_sets.Documents.get_entity(1).functions.GetPeerDocument.parameter('Mode', 'related')
 
@@ -306,7 +305,6 @@ def test_v3_bound_function_url_shape(service_v3):
     assert request.get_query_params() == {}
 
 
-@pytest.mark.xfail(reason='Bound actions do not have a V3 invocation surface yet', strict=True)
 def test_v3_bound_action_url_shape(service_v3):
     request = service_v3.entity_sets.Documents.get_entity(1).actions.Approve.parameter('Comment', 'ship it')
 
@@ -318,6 +316,105 @@ def test_v3_bound_action_url_shape(service_v3):
         'MaxDataServiceVersion': '3.0',
     }
     assert request.get_body() == '{"Comment": "ship it"}'
+
+
+def test_v3_bound_function_omits_binding_parameter_from_callers(service_v3):
+    request = service_v3.entity_sets.Documents.get_entity(1).functions.GetPeerDocument
+
+    with pytest.raises(PyODataException) as exc_info:
+        request.parameter('bindingParameter', {'Id': 1})
+
+    assert str(exc_info.value) == 'Bound operation GetPeerDocument is not available via service.functions'
+
+
+def test_v3_bound_function_execute_uses_entity_context_and_returns_v3_entity_proxy(schema_v3):
+    connection = _StaticResponseConnection(pyodata.v2.service.ODataHttpResponse(
+        url=f'{URL_ROOT}/Documents(1)/GetPeerDocument(Mode=%27related%27)',
+        headers={'Content-type': 'application/json'},
+        status_code=200,
+        content=b'{"d": {"Id": 2, "Title": "Peer draft"}}'))
+    service = pyodata.v3.service.Service(URL_ROOT, schema_v3, connection)
+
+    request = service.entity_sets.Documents.get_entity(1).functions.GetPeerDocument.parameter('Mode', 'related')
+    result = request.execute()
+
+    assert isinstance(result, pyodata.v3.service.EntityProxy)
+    assert result.Id == 2
+    assert result.Title == 'Peer draft'
+    assert result.actions.Approve.get_path() == 'Documents(2)/V3DemoContainer.Approve'
+    assert connection.requests == [{
+        'method': 'GET',
+        'url': f"{URL_ROOT}/Documents(1)/GetPeerDocument(Mode='related')",
+        'headers': {
+            'Accept': 'application/json;odata=verbose',
+            'MaxDataServiceVersion': '3.0',
+        },
+        'params': '',
+        'data': None,
+    }]
+
+
+def test_v3_bound_action_execute_uses_entity_context(schema_v3):
+    connection = _StaticResponseConnection(pyodata.v2.service.ODataHttpResponse(
+        url=f'{URL_ROOT}/Documents(1)/V3DemoContainer.Approve',
+        headers={'Content-type': 'application/json'},
+        status_code=200,
+        content=b'{"d": true}'))
+    service = pyodata.v3.service.Service(URL_ROOT, schema_v3, connection)
+
+    request = service.entity_sets.Documents.get_entity(1).actions.Approve.parameter('Comment', 'ship it')
+
+    assert request.execute() is True
+    assert connection.requests == [{
+        'method': 'POST',
+        'url': f'{URL_ROOT}/Documents(1)/V3DemoContainer.Approve',
+        'headers': {
+            'Accept': 'application/json;odata=verbose',
+            'Content-Type': 'application/json;odata=verbose',
+            'MaxDataServiceVersion': '3.0',
+        },
+        'params': '',
+        'data': '{"Comment": "ship it"}',
+    }]
+
+
+def test_v3_collection_bound_function_url_shape_and_parameter_order(service_v3):
+    request = service_v3.entity_sets.Documents.functions.FilterDocuments.parameter(
+        'Limit', 2).parameter(
+        'Query', 'draft')
+
+    assert request.get_method() == 'GET'
+    assert request.get_path() == "Documents/FilterDocuments(Query='draft',Limit=2)"
+    assert request.get_query_params() == {}
+
+
+def test_v3_collection_bound_action_without_return_uses_no_return_handling(schema_v3):
+    connection = _StaticResponseConnection(pyodata.v2.service.ODataHttpResponse(
+        url=f'{URL_ROOT}/Documents/V3DemoContainer.ApproveAll',
+        headers={},
+        status_code=204,
+        content=b''))
+    service = pyodata.v3.service.Service(URL_ROOT, schema_v3, connection)
+
+    request = service.entity_sets.Documents.actions.ApproveAll.parameter(
+        'Force', True).parameter(
+        'Comment', 'ship it')
+
+    assert request.get_method() == 'POST'
+    assert request.get_path() == 'Documents/V3DemoContainer.ApproveAll'
+    assert request.get_body() == '{"Comment": "ship it", "Force": true}'
+    assert request.execute() is None
+    assert connection.requests == [{
+        'method': 'POST',
+        'url': f'{URL_ROOT}/Documents/V3DemoContainer.ApproveAll',
+        'headers': {
+            'Accept': 'application/json;odata=verbose',
+            'Content-Type': 'application/json;odata=verbose',
+            'MaxDataServiceVersion': '3.0',
+        },
+        'params': '',
+        'data': '{"Comment": "ship it", "Force": true}',
+    }]
 
 
 @pytest.mark.xfail(reason='Named stream access is not modelled on the service surface yet', strict=True)

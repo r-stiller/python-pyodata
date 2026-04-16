@@ -6,7 +6,7 @@ It is intended as an internal engineering snapshot, not as end-user documentatio
 
 ## Current Status
 
-The repository now has explicit bootstrap paths for OData V3 metadata and a first narrow slice of runtime behavior, but V3 support is still incomplete overall.
+The repository now has explicit bootstrap paths for OData V3 metadata plus a narrow but usable operation-invocation slice in the runtime layer, including both unbound and supported bound operations.
 
 ## Implemented
 
@@ -53,12 +53,21 @@ The repository now has explicit bootstrap paths for OData V3 metadata and a firs
 - Preserved current return/no-return response handling for unbound V3 operations under the Verbose JSON contract.
 - Kept V2 function-import request semantics unchanged by isolating the V3 runtime behavior in `pyodata.v3.service`.
 
+### Session 6 bound operation invocation
+
+- Added V3-specific bound operation containers on supported entity and entity-set proxy surfaces.
+- Added entity-bound operation access from V3 entity contexts.
+- Added collection-bound operation access from V3 entity-set contexts for the fixture shapes covered by current tests.
+- Kept the binding parameter implicit and rejected explicit caller attempts to supply it.
+- Added V3 bound function invocation with binding-path URL shapes such as `Documents(1)/GetPeerDocument(Mode='related')`.
+- Added V3 bound action invocation with `POST` semantics and qualified action segments such as `Documents(1)/V3DemoContainer.Approve`.
+- Reused the current Verbose JSON response handling for bound operations, including return and no-return cases covered by the tests.
+- Kept the V2 runtime surface unchanged by isolating the bound-operation work in `pyodata.v3.service` and using only a narrow shared metadata addition for container-name tracking.
+
 ## Intentionally Deferred
 
 The following are not implemented yet:
 
-- Bound function invocation.
-- Bound action invocation.
 - Generalized request execution changes beyond the current header/payload guardrails and unbound-operation support.
 - Open type runtime behavior.
 - Named stream runtime behavior.
@@ -85,12 +94,16 @@ V3 service coverage currently passes for:
 - Representative primitive literal formatting for unbound function parameters.
 - Unbound action `POST` method, request headers, and request body shape.
 - Unbound action response handling for return and no-return cases.
+- Entity-bound function URL generation and execution.
+- Entity-bound action URL generation, `POST` request shape, and execution.
+- Rejection of explicit binding-parameter arguments on bound operations.
+- Collection-bound function URL generation and deterministic parameter ordering.
+- Collection-bound action response handling for no-return cases.
 
 V3 tests still intentionally remain `xfail` for:
 
 - Open type and stream metadata exposure.
 - Spatial primitive resolution.
-- Bound runtime operation behavior in the service layer.
 - Named stream service APIs.
 - Open type CRUD behavior.
 
@@ -106,7 +119,7 @@ V3 tests still intentionally remain `xfail` for:
 
 ## Next Likely Milestones
 
-1. Add bound function and action model-to-service integration.
-2. Add named stream surface and request behavior.
-3. Decide the supported scope for open types and spatial types.
-4. Expand V3 runtime support beyond the current unbound-operation slice only when tests require it.
+1. Add named stream surface and request behavior.
+2. Decide the supported scope for open types and spatial types.
+3. Expand V3 runtime support beyond the current operation-invocation slice only when tests require it.
+4. Revisit broader request/query composition only if later fixtures require more than the current narrow bound and unbound operation support.

@@ -57,6 +57,8 @@ def test_v3_function_import_basics_are_parsed(schema_v3):
     search = schema_v3.function_import('SearchDocuments')
     peer = schema_v3.function_import('GetPeerDocument')
     approve = schema_v3.function_import('Approve')
+    filter_documents = schema_v3.function_import('FilterDocuments')
+    approve_all = schema_v3.function_import('ApproveAll')
 
     assert search.http_method == 'GET'
     assert search.entity_set_name == 'Documents'
@@ -70,6 +72,14 @@ def test_v3_function_import_basics_are_parsed(schema_v3):
     assert approve.http_method == 'POST'
     assert approve.return_type.name == 'Edm.Boolean'
     assert [parameter.name for parameter in approve.parameters] == ['bindingParameter', 'Comment']
+
+    assert filter_documents.http_method == 'GET'
+    assert filter_documents.return_type.is_collection
+    assert [parameter.name for parameter in filter_documents.parameters] == ['bindingParameter', 'Query', 'Limit']
+
+    assert approve_all.http_method == 'POST'
+    assert approve_all.return_type is None
+    assert [parameter.name for parameter in approve_all.parameters] == ['bindingParameter', 'Comment', 'Force']
 
 
 def test_v3_alias_declarations_are_extracted_for_schema_alias_and_using(metadata_v3):
@@ -88,6 +98,8 @@ def test_v3_function_import_exposes_operation_flags(schema_v3):
     search = schema_v3.function_import('SearchDocuments')
     peer = schema_v3.function_import('GetPeerDocument')
     approve = schema_v3.function_import('Approve')
+    filter_documents = schema_v3.function_import('FilterDocuments')
+    approve_all = schema_v3.function_import('ApproveAll')
 
     assert search.is_bindable is False
     assert search.is_side_effecting is False
@@ -104,11 +116,23 @@ def test_v3_function_import_exposes_operation_flags(schema_v3):
     assert approve.is_composable is False
     assert approve.entity_set_path == 'bindingParameter'
 
+    assert filter_documents.is_bindable is True
+    assert filter_documents.is_side_effecting is False
+    assert filter_documents.is_composable is True
+    assert filter_documents.entity_set_path == 'bindingParameter'
+
+    assert approve_all.is_bindable is True
+    assert approve_all.is_side_effecting is True
+    assert approve_all.is_composable is False
+    assert approve_all.entity_set_path == 'bindingParameter'
+
 
 def test_v3_function_import_return_types_and_binding_parameters_are_parsed(schema_v3):
     search = schema_v3.function_import('SearchDocuments')
     peer = schema_v3.function_import('GetPeerDocument')
     approve = schema_v3.function_import('Approve')
+    filter_documents = schema_v3.function_import('FilterDocuments')
+    approve_all = schema_v3.function_import('ApproveAll')
 
     assert search.return_type_info == TypeInfo('V3Demo.Model', 'Document', True)
     assert search.binding_parameter is None
@@ -122,6 +146,15 @@ def test_v3_function_import_return_types_and_binding_parameters_are_parsed(schem
     assert approve.return_type_info == TypeInfo(None, 'Edm.Boolean', False)
     assert approve.binding_parameter.name == 'bindingParameter'
     assert approve.binding_parameter.typ.name == 'Document'
+
+    assert filter_documents.return_type_info == TypeInfo('V3Demo.Model', 'Document', True)
+    assert filter_documents.binding_parameter.name == 'bindingParameter'
+    assert filter_documents.binding_parameter.typ.is_collection is True
+    assert filter_documents.binding_parameter.typ.item_type.name == 'Document'
+
+    assert approve_all.return_type_info is None
+    assert approve_all.binding_parameter.name == 'bindingParameter'
+    assert approve_all.binding_parameter.typ.is_collection is True
 
 
 @pytest.mark.xfail(reason='Open type and stream metadata are not exposed on entity types yet', strict=True)

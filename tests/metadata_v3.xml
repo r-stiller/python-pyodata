@@ -88,6 +88,31 @@
           <Parameter Name="bindingParameter" Type="V3Demo.Model.Document" Mode="In" Nullable="false" />
           <Parameter Name="Comment" Type="Edm.String" Mode="In" Nullable="true" />
         </FunctionImport>
+
+        <FunctionImport Name="FilterDocuments"
+                        ReturnType="Collection(V3Demo.Model.Document)"
+                        EntitySet="Documents"
+                        IsBindable="true"
+                        IsSideEffecting="false"
+                        IsComposable="true"
+                        EntitySetPath="bindingParameter"
+                        m:HttpMethod="GET">
+          <Parameter Name="bindingParameter" Type="Collection(V3Demo.Model.Document)" Mode="In"
+                     Nullable="false" />
+          <Parameter Name="Query" Type="Edm.String" Mode="In" Nullable="false" />
+          <Parameter Name="Limit" Type="Edm.Int32" Mode="In" Nullable="false" />
+        </FunctionImport>
+
+        <FunctionImport Name="ApproveAll"
+                        IsBindable="true"
+                        IsSideEffecting="true"
+                        EntitySetPath="bindingParameter"
+                        m:HttpMethod="POST">
+          <Parameter Name="bindingParameter" Type="Collection(V3Demo.Model.Document)" Mode="In"
+                     Nullable="false" />
+          <Parameter Name="Comment" Type="Edm.String" Mode="In" Nullable="true" />
+          <Parameter Name="Force" Type="Edm.Boolean" Mode="In" Nullable="false" />
+        </FunctionImport>
       </EntityContainer>
     </Schema>
   </edmx:DataServices>

@@ -49,14 +49,16 @@ This repository should be approached as a Python OData V2 client library with a 
 ### `pyodata/v3/model.py`
 
 - Keep V3 changes additive and narrow; this layer currently extends the shared V2 model machinery rather than replacing it.
-- Preserve alias handling, V3 namespace acceptance, and the current `FunctionImport` metadata shape used by the V3 service layer.
+- Preserve alias handling, V3 namespace acceptance, and the current `FunctionImport` metadata shape used by the V3 service layer, including bindability flags, binding-parameter identification, entity-set-path data, and container-name metadata used for bound actions.
 - Avoid speculative parser expansion beyond the behaviors covered by the V3 fixtures and tests.
 
 ### `pyodata/v3/service.py`
 
 - Prefer V3-specific request/container classes over broad edits to `pyodata/v2/service.py`.
 - Keep V2 `service.functions.*` behavior unchanged; V3 differences should stay isolated here.
-- Current V3 runtime scope includes explicit header policy, Verbose-JSON-only parsing, and unbound operation invocation only. Bound operations remain deferred unless the task explicitly takes them on.
+- Current V3 runtime scope includes explicit header policy, Verbose-JSON-only parsing, unbound operation invocation, and the current bound operation slice from entity and entity-set contexts.
+- Preserve the current V3 distinction between unbound and bound operations, including implicit binding parameters, path-style bound functions, and qualified bound-action segments.
+- Named streams, open-type runtime behavior, and spatial runtime behavior remain deferred unless the task explicitly takes them on.
 
 ### `pyodata/vendor/`
 

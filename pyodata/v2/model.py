@@ -2583,7 +2583,8 @@ class ValueHelperParameter:
 
 class FunctionImport(Identifier):
     def __init__(self, name, return_type_info, entity_set, parameters, http_method='GET',
-                 is_bindable=False, is_side_effecting=False, is_composable=None, entity_set_path=None):
+                 is_bindable=False, is_side_effecting=False, is_composable=None, entity_set_path=None,
+                 container_name=None):
         super(FunctionImport, self).__init__(name)
 
         self._entity_set_name = entity_set
@@ -2595,6 +2596,7 @@ class FunctionImport(Identifier):
         self._is_side_effecting = is_side_effecting
         self._is_composable = is_composable
         self._entity_set_path = entity_set_path
+        self._container_name = container_name
 
     @property
     def return_type_info(self):
@@ -2621,6 +2623,10 @@ class FunctionImport(Identifier):
     @property
     def entity_set_path(self):
         return self._entity_set_path
+
+    @property
+    def container_name(self):
+        return self._container_name
 
     @property
     def parameters(self):
@@ -2664,6 +2670,10 @@ class FunctionImport(Identifier):
         is_side_effecting = attribute_get_bool(function_import_node, 'IsSideEffecting', False)
         is_composable = attribute_get_bool(function_import_node, 'IsComposable', False)
         entity_set_path = function_import_node.get('EntitySetPath')
+        container_node = function_import_node.getparent()
+        container_name = None
+        if container_node is not None and etree.QName(container_node.tag).localname == 'EntityContainer':
+            container_name = container_node.get('Name')
 
         rt_type = function_import_node.get('ReturnType')
         rt_info = None if rt_type is None else Types.parse_type_name(rt_type, aliases)
@@ -2684,7 +2694,8 @@ class FunctionImport(Identifier):
                                                              is_binding_parameter)
 
         return FunctionImport(name, rt_info, entity_set, parameters, http_method,
-                              is_bindable, is_side_effecting, is_composable, entity_set_path)
+                              is_bindable, is_side_effecting, is_composable, entity_set_path,
+                              container_name=container_name)
 
 
 class FunctionImportParameter(VariableDeclaration):
