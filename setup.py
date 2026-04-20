@@ -44,7 +44,7 @@ setup(
     },
     tests_require=[
         "codecov",
-        "flake8",
+        "ruff",
         "setuptools>=38.2.4",
         "setuptools-scm>=1.15.6",
         "requests>=2.28.1",

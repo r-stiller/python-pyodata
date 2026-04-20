@@ -50,7 +50,7 @@
   * pip install -r requirements.txt
   * pytest --cov-report term --cov=pyodata
   * pylint --rcfile=.pylintrc --output-format=parseable --reports=no pyodata
-  * flake8 --config=.flake8 pyodata
+  * python -m ruff check pyodata
 
   There is a Makefile with all targets that can be used as well, if you are fan of makefiles.
 

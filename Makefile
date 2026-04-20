@@ -15,9 +15,8 @@ PYLINT_BIN=pylint
 PYLINT_RC_FILE=.pylintrc
 PYLINT_PARAMS=--output-format=parseable --reports=no
 
-FLAKE8_BIN=flake8
-FLAKE8_CONFIG_FILE=.flake8
-FLAKE8_PARAMS=
+RUFF_BIN=python3 -m ruff
+RUFF_CHECK_PARAMS=check
 
 COVERAGE_BIN=coverage3
 COVERAGE_REPORT_ARGS=--skip-covered
@@ -32,7 +31,7 @@ all: check
 .PHONY=check
 lint: doc
 	$(PYLINT_BIN) --rcfile=$(PYLINT_RC_FILE) $(PYLINT_PARAMS) $(PYTHON_MODULE)
-	$(FLAKE8_BIN) --config=$(FLAKE8_CONFIG_FILE) $(FLAKE8_PARAMS) $(PYTHON_MODULE)
+	$(RUFF_BIN) $(RUFF_CHECK_PARAMS) $(PYTHON_MODULE)
 
 .PHONY=test
 test:

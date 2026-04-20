@@ -86,7 +86,7 @@ Use `pixi` for local validation by default:
 ```bash
 pixi run -e pyodata-dev python -m pytest --cov-report term --cov=pyodata
 pixi run -e pyodata-dev pylint --rcfile=.pylintrc --output-format=parseable --reports=no pyodata
-pixi run -e pyodata-dev flake8 --config=.flake8 pyodata
+pixi run -e pyodata-dev python -m ruff check pyodata
 pixi run -e pyodata-dev make -C docs html
 ```
 

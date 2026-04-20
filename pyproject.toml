@@ -45,6 +45,7 @@ python_pyodata 	= { path = ".", editable = true }
 # =============================================================================
 
 [tool.pixi.feature.dev.dependencies]
+bandit          = "==1.7.5"
 pixi-pycharm    = ">=0.0.10"
 pytest        	= "*"
 pytest-aiohttp	= "*"
@@ -55,3 +56,6 @@ httpx           = ">=0.23.0"
 respx           = ">=0.19.2"
 ruff            = ">=0.15.0"
 ty              = ">=0.0.14"
+
+[tool.ruff.lint]
+ignore = ["E501"]

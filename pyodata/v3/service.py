@@ -3,12 +3,18 @@
 import json
 import logging
 from functools import partial
+from urllib.parse import urljoin
 
 from pyodata.v2 import model
 from pyodata.v2.service import *  # noqa: F401,F403
 from pyodata.exceptions import HttpError, PyODataException
 from pyodata.v2.service import (
+    HTTP_CODE_CREATED,
+    HTTP_CODE_OK,
+    EntityKey,
     LOGGER_NAME,
+    GetEntitySetRequest,
+    ListWithTotalCount,
     EntityContainer as _EntityContainer,
     EntityCreateRequest as _EntityCreateRequest,
     EntityGetRequest as _EntityGetRequest,

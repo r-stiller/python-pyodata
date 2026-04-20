@@ -8,7 +8,6 @@ from collections.abc import Mapping
 from lxml import etree
 
 from pyodata.exceptions import PyODataException, PyODataParserError
-from pyodata.v2.model import *  # noqa: F401,F403
 from pyodata.v2.model import Config as _Config
 from pyodata.v2.model import MetadataBuilder as _MetadataBuilder
 from pyodata.v2.model import ParserError, PolicyIgnore, Schema, Typ, TypTraits, Types
