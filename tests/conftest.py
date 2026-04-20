@@ -112,6 +112,43 @@ def reference_v3_odata_products_top_2_light_none_payload():
 
 
 @pytest.fixture
+def reference_v3_odata_products_top_2_inlinecount_payload():
+    return contents_of_fixtures_file('fixtures/reference_services_v3/odata_products_top_2_inlinecount.json')
+
+
+@pytest.fixture
+def reference_v3_odata_products_top_2_light_minimal_inlinecount_payload():
+    return contents_of_fixtures_file('fixtures/reference_services_v3/odata_products_top_2_light_minimal_inlinecount.json')
+
+
+@pytest.fixture
+def reference_v3_northwind_products_page_1_payload():
+    return contents_of_fixtures_file('fixtures/reference_services_v3/northwind_products_page_1.json')
+
+
+@pytest.fixture
+def reference_v3_odata_batch_products_mixed_count_payload():
+    return contents_of_fixtures_file('fixtures/reference_services_v3/odata_batch_products_mixed_count.response')
+
+
+@pytest.fixture
+def reference_v3_odata_batch_products_mixed_count_content_type():
+    return contents_of_fixtures_file(
+        'fixtures/reference_services_v3/odata_batch_products_mixed_count.response.content_type.txt').decode('utf-8')
+
+
+@pytest.fixture
+def reference_v3_northwind_batch_products_page_1_payload():
+    return contents_of_fixtures_file('fixtures/reference_services_v3/northwind_batch_products_page_1.response')
+
+
+@pytest.fixture
+def reference_v3_northwind_batch_products_page_1_content_type():
+    return contents_of_fixtures_file(
+        'fixtures/reference_services_v3/northwind_batch_products_page_1.response.content_type.txt').decode('utf-8')
+
+
+@pytest.fixture
 def xml_builder_factory():
     """Skeleton OData metadata"""
 

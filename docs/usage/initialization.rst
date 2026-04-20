@@ -75,8 +75,9 @@ The supported V3 slice currently includes:
 - batch for the supported JSON request and response shapes
 - named and default stream reads
 - open entity types and dynamic properties
-- captured regression fixtures from the public OData V3 reference services, plus
-  opt-in live smoke coverage
+- captured regression fixtures from the public OData V3 reference services,
+  including real metadata variants, collection count/paging wrappers, and mixed
+  batch subresponses, plus opt-in live smoke coverage
 
 The following V3 areas remain unsupported or partial:
 

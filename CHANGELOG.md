@@ -12,6 +12,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
   `https://services.odata.org/V3/Northwind/Northwind.svc/`.
 - Captured OData V3 JSON Light reference-service fixtures for entity and
   collection responses from `https://services.odata.org/V3/OData/OData.svc/`.
+- Captured additional OData V3 reference-service fixtures for real collection
+  `__count`/`__next` wrappers and read-only batch responses from the public
+  `OData` and `Northwind` V3 services.
 
 ### Changed
 - OData V3 now supports opt-in JSON Light via `pyodata.v3.model.Config` with
@@ -25,6 +28,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - OData V3 response parsing now accepts the supported JSON Light entity,
   collection, property, operation, and batch payload shapes and strips
   JSON Light control annotations before open-type caching.
+- OData V3 collection-valued operation results now preserve collection metadata
+  such as `total_count` and `next_url` via `ListWithTotalCount`, matching the
+  existing entity-set query surface for the broadened real-service payload
+  shapes.
 - OData V3 unbound function invocation now follows the public reference-service
   query-string parameter shape instead of path-style arguments.
 - OData V3 `Edm.DateTime` payload parsing now accepts the ISO timestamp shape

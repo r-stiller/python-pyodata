@@ -6,6 +6,8 @@ Capture date: `2026-04-16`
 
 JSON Light capture date: `2026-04-20`
 
+Expanded collection/batch capture date: `2026-04-20`
+
 Sources:
 
 - `odata_service_metadata.xml`
@@ -42,10 +44,26 @@ Sources:
 - `odata_products_top_2_light_none.json`
   - `https://services.odata.org/V3/OData/OData.svc/Products?$top=2`
   - `Accept: application/json;odata=nometadata`
+- `odata_products_top_2_inlinecount.json`
+  - `https://services.odata.org/V3/OData/OData.svc/Products?$top=2&$inlinecount=allpages`
+- `odata_products_top_2_light_minimal_inlinecount.json`
+  - `https://services.odata.org/V3/OData/OData.svc/Products?$top=2&$inlinecount=allpages`
+  - `Accept: application/json;odata=minimalmetadata`
 - `northwind_product_1.json`
   - `https://services.odata.org/V3/Northwind/Northwind.svc/Products(1)`
 - `northwind_products_top_2.json`
   - `https://services.odata.org/V3/Northwind/Northwind.svc/Products?$top=2`
+- `northwind_products_page_1.json`
+  - `https://services.odata.org/V3/Northwind/Northwind.svc/Products`
+- `odata_batch_products_mixed_count.response`
+  - `https://services.odata.org/V3/OData/OData.svc/$batch`
+  - subrequests:
+    - `GET Products?$top=2&$inlinecount=allpages` with `Accept: application/json;odata=verbose`
+    - `GET Products?$top=2` with `Accept: application/json;odata=minimalmetadata`
+- `northwind_batch_products_page_1.response`
+  - `https://services.odata.org/V3/Northwind/Northwind.svc/$batch`
+  - subrequest:
+    - `GET Products` with `Accept: application/json;odata=verbose`
 
 Notes:
 
@@ -53,3 +71,4 @@ Notes:
 - Live smoke coverage lives separately behind `PYODATA_RUN_REFERENCE_SERVICE_LIVE=1`.
 - The read-write service is referenced only via the canonical `(S(readwrite))` URL. Tests must not hardcode redirected session-specific URLs.
 - The JSON Light fixtures were captured with explicit metadata-specific `Accept` values to preserve representative `minimal`, `full`, and `none` payload shapes. Runtime negotiation now follows the V3 compatibility header `application/json;odata=light;q=1,application/json;odata=verbose;q=0.5`.
+- Batch response `Content-Type` headers are stored in adjacent `.content_type.txt` files because the service-generated multipart boundaries are part of the replay contract.

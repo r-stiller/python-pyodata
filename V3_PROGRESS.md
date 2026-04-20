@@ -6,7 +6,7 @@ It is intended as an internal engineering snapshot, not as end-user documentatio
 
 ## Current Status
 
-The repository now has an explicit first OData V3 milestone: opt-in bootstrap via `odata_version=3`, default Verbose JSON plus opt-in JSON Light request negotiation and parsing, a coherent tested runtime slice, supported batch handling for the covered request and response shapes, and networking-library integration coverage across `requests`, `httpx` sync, `httpx` async, and `aiohttp`.
+The repository now has an explicit first OData V3 milestone: opt-in bootstrap via `odata_version=3`, default Verbose JSON plus opt-in JSON Light request negotiation and parsing, a coherent tested runtime slice, supported batch handling for the covered request and response shapes, broader regression coverage for real reference-service metadata and payload variants, and networking-library integration coverage across `requests`, `httpx` sync, `httpx` async, and `aiohttp`.
 
 ## Implemented
 
@@ -127,6 +127,13 @@ The repository now has an explicit first OData V3 milestone: opt-in bootstrap vi
 - Added JSON Light coverage for entity reads, collection queries, property reads, unbound and bound operation results, and batch subresponses.
 - Added captured JSON Light fixtures from the public `services.odata.org` V3 reference service for offline regression coverage.
 
+### Session 13 broader real-service coverage
+
+- Added additional captured reference-service fixtures for real Verbose collection `__count` payloads, real server-driven `__next` paging payloads, JSON Light `odata.count` payloads, and read-only batch responses.
+- Expanded V3 model coverage to assert more usable semantics from the checked-in `OData`, read-write `OData`, and `Northwind` metadata snapshots, including complex-property resolution, navigation-target resolution, and method-less bound-function metadata.
+- Expanded V3 service coverage around real collection wrappers and mixed batch subresponses instead of only compact synthetic fixtures.
+- Adjusted V3 operation collection materialization to preserve `total_count` and `next_url` metadata via `ListWithTotalCount`, matching the existing entity-set query surface.
+
 ## Intentionally Deferred
 
 The following are not implemented yet:
@@ -154,23 +161,29 @@ V3 model coverage currently passes for:
 - `Edm.Stream` property resolution for the fixture metadata.
 - V3-only spatial primitive registration and lookup for the current fixture types.
 - Metadata parsing of entity properties declared as `Edm.GeographyPoint` and `Edm.GeometryPoint`.
+- Real reference-service complex-property and navigation-target resolution.
+- Real read-write reference-service method-less bound-function metadata, including container-name and parameter semantics.
+- Large real-world `Northwind` metadata parsing beyond the compact fixture slice.
 
 V3 service coverage currently passes for:
 
 - V3 Verbose JSON request headers for read and write requests.
 - Opt-in V3 JSON Light request headers for read and write requests.
 - JSON Light entity, collection, property, operation, and batch response parsing with Verbose fallback.
+- Real reference-service collection reads carrying Verbose `__count`, Verbose `__next`, and JSON Light `odata.count`.
 - Unbound function query-string URL generation aligned with the public V3 reference service.
 - Deterministic ordering of unbound function parameters.
 - Representative primitive literal formatting for unbound function parameters.
 - Unbound action `POST` method, request headers, and request body shape.
 - Unbound action response handling for return and no-return cases.
 - Entity-bound function URL generation and execution.
+- Metadata-driven default HTTP-method execution for the current read-write reference-service bound-function metadata.
 - Entity-bound action URL generation, `POST` request shape, and execution.
 - Rejection of explicit binding-parameter arguments on bound operations.
 - Collection-bound function URL generation and deterministic parameter ordering.
 - Collection-bound action response handling for no-return cases.
 - Batch request execution for the supported Verbose JSON read and action response shapes.
+- Real read-only batch response parsing for mixed Verbose/JSON Light subresponses and paged collection subresponses.
 - Default media-stream request construction for V3 media entities.
 - Named-stream request construction for V3 `Edm.Stream` properties.
 - Raw-content stream reads for default and named streams.

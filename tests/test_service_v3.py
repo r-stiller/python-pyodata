@@ -14,6 +14,7 @@ from pyodata.exceptions import PyODataException
 
 URL_ROOT = 'http://odatapy.example.com'
 REFERENCE_ODATA_URL_ROOT = 'https://services.odata.org/V3/OData/OData.svc/'
+REFERENCE_ODATA_READWRITE_URL_ROOT = 'https://services.odata.org/V3/(S(readwrite))/OData/OData.svc/'
 REFERENCE_NORTHWIND_URL_ROOT = 'https://services.odata.org/V3/Northwind/Northwind.svc/'
 DUMMY_CONNECTION = object()
 
@@ -517,6 +518,51 @@ def test_reference_v3_northwind_entity_query_from_captured_payload(
     }]
 
 
+def test_reference_v3_odata_entity_query_from_captured_verbose_inlinecount_payload(
+        reference_v3_odata_metadata,
+        reference_v3_odata_products_top_2_inlinecount_payload):
+    connection = _StaticResponseConnection(pyodata.v2.service.ODataHttpResponse(
+        url=f'{REFERENCE_ODATA_URL_ROOT}Products?$top=2&$inlinecount=allpages',
+        headers={'Content-type': 'application/json;odata=verbose;charset=utf-8'},
+        status_code=200,
+        content=reference_v3_odata_products_top_2_inlinecount_payload))
+    service = pyodata.Client(
+        REFERENCE_ODATA_URL_ROOT,
+        connection,
+        odata_version=3,
+        metadata=reference_v3_odata_metadata)
+
+    products = service.entity_sets.Products.get_entities().top(2).count(inline=True).execute()
+
+    assert isinstance(products, pyodata.v2.service.ListWithTotalCount)
+    assert [product.ID for product in products] == [0, 1]
+    assert products.total_count == 11
+    assert products.next_url is None
+
+
+def test_reference_v3_northwind_entity_query_from_captured_paged_payload(
+        reference_v3_northwind_metadata,
+        reference_v3_northwind_products_page_1_payload):
+    connection = _StaticResponseConnection(pyodata.v2.service.ODataHttpResponse(
+        url=f'{REFERENCE_NORTHWIND_URL_ROOT}Products',
+        headers={'Content-type': 'application/json;odata=verbose;charset=utf-8'},
+        status_code=200,
+        content=reference_v3_northwind_products_page_1_payload))
+    service = pyodata.Client(
+        REFERENCE_NORTHWIND_URL_ROOT,
+        connection,
+        odata_version=3,
+        metadata=reference_v3_northwind_metadata)
+
+    products = service.entity_sets.Products.get_entities().execute()
+
+    assert isinstance(products, pyodata.v2.service.ListWithTotalCount)
+    assert len(products) == 20
+    assert products[0].ProductID == 1
+    assert products[-1].ProductID == 20
+    assert products.next_url == f'{REFERENCE_NORTHWIND_URL_ROOT}Products?$skiptoken=20'
+
+
 @pytest.mark.parametrize(('json_metadata', 'payload_fixture_name'), [
     ('minimal', 'reference_v3_odata_products_top_2_light_minimal_payload'),
     ('full', 'reference_v3_odata_products_top_2_light_full_payload'),
@@ -544,6 +590,28 @@ def test_reference_v3_odata_entity_query_accepts_captured_json_light_payloads(
 
     assert len(products) == 2
     assert [product.ID for product in products] == [0, 1]
+
+
+def test_reference_v3_odata_entity_query_accepts_captured_json_light_inlinecount_payload(
+        reference_v3_odata_metadata,
+        reference_v3_odata_products_top_2_light_minimal_inlinecount_payload):
+    connection = _StaticResponseConnection(pyodata.v2.service.ODataHttpResponse(
+        url=f'{REFERENCE_ODATA_URL_ROOT}Products?$top=2&$inlinecount=allpages',
+        headers={'Content-type': 'application/json'},
+        status_code=200,
+        content=reference_v3_odata_products_top_2_light_minimal_inlinecount_payload))
+    service = pyodata.Client(
+        REFERENCE_ODATA_URL_ROOT,
+        connection,
+        odata_version=3,
+        config=_light_config('minimal'),
+        metadata=reference_v3_odata_metadata)
+
+    products = service.entity_sets.Products.get_entities().top(2).count(inline=True).execute()
+
+    assert isinstance(products, pyodata.v2.service.ListWithTotalCount)
+    assert [product.ID for product in products] == [0, 1]
+    assert products.total_count == 11
 
 
 @pytest.mark.parametrize(('json_metadata', 'payload'), [
@@ -678,6 +746,50 @@ def test_v3_json_light_unbound_function_collection_response_uses_top_level_value
     result = service.functions.SearchDocuments.parameter('Query', 'draft').parameter('Limit', 2).execute()
 
     assert [entity.Id for entity in result] == [1, 2]
+
+
+def test_reference_v3_odata_readwrite_bound_function_uses_metadata_driven_default_method(
+        reference_v3_odata_readwrite_metadata):
+    connection = _StaticResponseConnection(pyodata.v2.service.ODataHttpResponse(
+        url=f'{REFERENCE_ODATA_READWRITE_URL_ROOT}Products(1)/Discount(discountPercentage=25)',
+        headers={'Content-type': 'application/json;odata=verbose;charset=utf-8'},
+        status_code=200,
+        content=b'{"d": 2.625}'))
+    service = pyodata.Client(
+        REFERENCE_ODATA_READWRITE_URL_ROOT,
+        connection,
+        odata_version=3,
+        metadata=reference_v3_odata_readwrite_metadata)
+
+    request = service.entity_sets.Products.get_entity(1, encode_path=False).functions.Discount.parameter(
+        'discountPercentage', 25)
+    result = request.execute()
+
+    assert request.get_method() == 'GET'
+    assert request.get_path() == 'Products(1)/Discount(discountPercentage=25)'
+    assert result == 2.625
+
+
+def test_reference_v3_collection_operation_result_preserves_count_metadata(
+        reference_v3_odata_metadata,
+        reference_v3_odata_products_top_2_inlinecount_payload):
+    connection = _StaticResponseConnection(pyodata.v2.service.ODataHttpResponse(
+        url=f'{REFERENCE_ODATA_URL_ROOT}GetProductsByRating?rating=5',
+        headers={'Content-type': 'application/json;odata=verbose;charset=utf-8'},
+        status_code=200,
+        content=reference_v3_odata_products_top_2_inlinecount_payload))
+    service = pyodata.Client(
+        REFERENCE_ODATA_URL_ROOT,
+        connection,
+        odata_version=3,
+        metadata=reference_v3_odata_metadata)
+
+    products = service.functions.GetProductsByRating.parameter('rating', 5).execute()
+
+    assert isinstance(products, pyodata.v2.service.ListWithTotalCount)
+    assert [product.ID for product in products] == [0, 1]
+    assert products.total_count == 11
+    assert products.next_url is None
 
 
 def test_v3_json_light_bound_function_response_uses_direct_entity_object(schema_v3):
@@ -979,6 +1091,62 @@ def test_v3_batch_request_accepts_json_light_and_verbose_fallback_subresponses(s
     assert isinstance(result[0], pyodata.v3.service.EntityProxy)
     assert result[0].Title == 'Spec draft'
     assert result[1] == [True]
+
+
+def test_reference_v3_odata_batch_query_accepts_captured_mixed_count_subresponses(
+        reference_v3_odata_metadata,
+        reference_v3_odata_batch_products_mixed_count_payload,
+        reference_v3_odata_batch_products_mixed_count_content_type):
+    connection = _StaticResponseConnection(pyodata.v2.service.ODataHttpResponse(
+        url=f'{REFERENCE_ODATA_URL_ROOT}$batch',
+        headers={'Content-Type': reference_v3_odata_batch_products_mixed_count_content_type},
+        status_code=202,
+        content=reference_v3_odata_batch_products_mixed_count_payload))
+    service = pyodata.Client(
+        REFERENCE_ODATA_URL_ROOT,
+        connection,
+        odata_version=3,
+        config=_light_config('minimal'),
+        metadata=reference_v3_odata_metadata)
+
+    batch = service.create_batch('odataref')
+    batch.add_request(service.entity_sets.Products.get_entities().top(2).count(inline=True))
+    batch.add_request(service.entity_sets.Products.get_entities().top(2))
+
+    result = batch.execute()
+
+    assert len(result) == 2
+    assert isinstance(result[0], pyodata.v2.service.ListWithTotalCount)
+    assert [product.ID for product in result[0]] == [0, 1]
+    assert result[0].total_count == 11
+    assert [product.ID for product in result[1]] == [0, 1]
+
+
+def test_reference_v3_northwind_batch_query_preserves_server_driven_paging(
+        reference_v3_northwind_metadata,
+        reference_v3_northwind_batch_products_page_1_payload,
+        reference_v3_northwind_batch_products_page_1_content_type):
+    connection = _StaticResponseConnection(pyodata.v2.service.ODataHttpResponse(
+        url=f'{REFERENCE_NORTHWIND_URL_ROOT}$batch',
+        headers={'Content-Type': reference_v3_northwind_batch_products_page_1_content_type},
+        status_code=202,
+        content=reference_v3_northwind_batch_products_page_1_payload))
+    service = pyodata.Client(
+        REFERENCE_NORTHWIND_URL_ROOT,
+        connection,
+        odata_version=3,
+        metadata=reference_v3_northwind_metadata)
+
+    batch = service.create_batch('northwindref')
+    batch.add_request(service.entity_sets.Products.get_entities())
+
+    result = batch.execute()
+
+    assert len(result) == 1
+    assert isinstance(result[0], pyodata.v2.service.ListWithTotalCount)
+    assert len(result[0]) == 20
+    assert result[0][0].ProductID == 1
+    assert result[0].next_url == f'{REFERENCE_NORTHWIND_URL_ROOT}Products?$skiptoken=20'
 
 
 def test_v3_media_stream_access_api_shape(service_v3):

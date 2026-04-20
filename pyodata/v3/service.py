@@ -304,6 +304,17 @@ def _resolve_entity_set_for_return_type(service, function_import, bound_entity_s
     return None
 
 
+def _materialize_collection_result(service, item_type, collection_data, total_count=None, next_url=None, entity_set=None):
+    result = ListWithTotalCount(total_count, next_url)
+
+    if isinstance(item_type, model.EntityType) and entity_set is not None:
+        result.extend([EntityProxy(service, entity_set, item_type, entity) for entity in collection_data])
+        return result
+
+    result.extend(collection_data)
+    return result
+
+
 class StreamRequest(ODataHttpRequest):
     """Raw-content request used for V3 media and named stream access."""
 
@@ -373,26 +384,34 @@ def _operation_response_handler(service, function_import, response, bound_entity
             'The Function Import %s has replied with HTTP Status Code %d instead of 200',
             function_import.name, response.status_code)
 
+    if isinstance(function_import.return_type, model.Collection):
+        normalized = service.extract_json_payload_metadata_from_content(response.json())
+        collection_data = normalized.payload
+        total_count = normalized.total_count
+        next_url = normalized.next_url
+
+        if isinstance(collection_data, dict):
+            if total_count is None and '__count' in collection_data:
+                total_count = int(collection_data['__count'])
+            if next_url is None and '__next' in collection_data:
+                next_url = collection_data['__next']
+            collection_data = collection_data.get('results', collection_data)
+
+        entity_set = _resolve_entity_set_for_return_type(service, function_import, bound_entity_set)
+        return _materialize_collection_result(
+            service,
+            function_import.return_type.item_type,
+            collection_data,
+            total_count=total_count,
+            next_url=next_url,
+            entity_set=entity_set)
+
     response_data = service.extract_json_payload(response)
 
     if isinstance(function_import.return_type, model.EntityType):
         entity_set = _resolve_entity_set_for_return_type(service, function_import, bound_entity_set)
         if entity_set is not None:
             return EntityProxy(service, entity_set, function_import.return_type, response_data)
-
-    if isinstance(function_import.return_type, model.Collection):
-        item_type = function_import.return_type.item_type
-        if isinstance(response_data, dict):
-            collection_data = response_data.get('results', response_data)
-        else:
-            collection_data = response_data
-
-        if isinstance(item_type, model.EntityType):
-            entity_set = _resolve_entity_set_for_return_type(service, function_import, bound_entity_set)
-            if entity_set is not None:
-                return [EntityProxy(service, entity_set, item_type, entity) for entity in collection_data]
-
-        return collection_data
 
     return response_data
 

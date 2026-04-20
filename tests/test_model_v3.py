@@ -229,6 +229,18 @@ def test_reference_v3_odata_metadata_exposes_public_service_features(reference_s
     assert [parameter.name for parameter in get_products_by_rating.parameters] == ['rating']
 
 
+def test_reference_v3_odata_metadata_resolves_complex_and_navigation_shapes(reference_schema_v3_odata):
+    supplier = reference_schema_v3_odata.entity_type('Supplier')
+    person = reference_schema_v3_odata.entity_type('Person')
+    product = reference_schema_v3_odata.entity_type('Product')
+
+    assert supplier.proprty('Address').typ.name == 'Address'
+    assert supplier.proprty('Address').type_info == TypeInfo('ODataDemo', 'Address', False)
+    assert person.nav_proprty('PersonDetail').typ.name == 'PersonDetail'
+    assert product.nav_proprty('Supplier').typ.name == 'Supplier'
+    assert len(reference_schema_v3_odata.entity_sets) == 7
+
+
 def test_reference_v3_odata_readwrite_metadata_defaults_missing_http_methods(reference_schema_v3_odata_readwrite):
     discount = reference_schema_v3_odata_readwrite.function_import('Discount')
     increase_salaries = reference_schema_v3_odata_readwrite.function_import('IncreaseSalaries')
@@ -246,6 +258,10 @@ def test_reference_v3_odata_readwrite_metadata_defaults_missing_http_methods(ref
     assert increase_salaries.return_type is None
     assert [parameter.name for parameter in increase_salaries.parameters] == ['percentage']
 
+    discount_percentage = discount.get_parameter('discountPercentage')
+    assert discount_percentage.typ.name == 'Edm.Int32'
+    assert discount_percentage.nullable is False
+
 
 def test_reference_v3_northwind_metadata_parses_large_real_world_service(reference_schema_v3_northwind):
     assert set(reference_schema_v3_northwind.namespaces) == {'NorthwindModel', 'ODataWebV3.Northwind.Model'}
@@ -254,3 +270,13 @@ def test_reference_v3_northwind_metadata_parses_large_real_world_service(referen
     assert reference_schema_v3_northwind.entity_type('Product').proprty('ProductName').type_info == (
         TypeInfo(None, 'Edm.String', False))
     assert len(reference_schema_v3_northwind.entity_sets) > 20
+
+
+def test_reference_v3_northwind_metadata_resolves_navigation_targets(reference_schema_v3_northwind):
+    customer = reference_schema_v3_northwind.entity_type('Customer')
+    order = reference_schema_v3_northwind.entity_type('Order')
+    invoice = reference_schema_v3_northwind.entity_type('Invoice')
+
+    assert customer.nav_proprty('Orders').typ.name == 'Order'
+    assert order.nav_proprty('Customer').typ.name == 'Customer'
+    assert invoice.proprty('OrderDate').type_info == TypeInfo(None, 'Edm.DateTime', False)

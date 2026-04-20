@@ -1,0 +1,23 @@
+--batchresponse_80e7eebd-fa8d-4a84-b5f9-ddb29d534c98
+Content-Type: application/http
+Content-Transfer-Encoding: binary
+
+HTTP/1.1 200 OK
+DataServiceVersion: 3.0;
+Content-Type: application/json;odata=verbose;charset=utf-8
+X-Content-Type-Options: nosniff
+Cache-Control: no-cache
+
+{"d":{"results":[{"__metadata":{"id":"https://services.odata.org/V3/OData/OData.svc/Products(0)","uri":"https://services.odata.org/V3/OData/OData.svc/Products(0)","type":"ODataDemo.Product","properties":{"Categories":{"associationuri":"https://services.odata.org/V3/OData/OData.svc/Products(0)/$links/Categories"},"Supplier":{"associationuri":"https://services.odata.org/V3/OData/OData.svc/Products(0)/$links/Supplier"},"ProductDetail":{"associationuri":"https://services.odata.org/V3/OData/OData.svc/Products(0)/$links/ProductDetail"}}},"Categories":{"__deferred":{"uri":"https://services.odata.org/V3/OData/OData.svc/Products(0)/Categories"}},"Supplier":{"__deferred":{"uri":"https://services.odata.org/V3/OData/OData.svc/Products(0)/Supplier"}},"ProductDetail":{"__deferred":{"uri":"https://services.odata.org/V3/OData/OData.svc/Products(0)/ProductDetail"}},"ID":0,"Name":"Bread","Description":"Whole grain bread","ReleaseDate":"1992-01-01T00:00:00","DiscontinuedDate":null,"Rating":4,"Price":2.5},{"__metadata":{"id":"https://services.odata.org/V3/OData/OData.svc/Products(1)","uri":"https://services.odata.org/V3/OData/OData.svc/Products(1)","type":"ODataDemo.Product","properties":{"Categories":{"associationuri":"https://services.odata.org/V3/OData/OData.svc/Products(1)/$links/Categories"},"Supplier":{"associationuri":"https://services.odata.org/V3/OData/OData.svc/Products(1)/$links/Supplier"},"ProductDetail":{"associationuri":"https://services.odata.org/V3/OData/OData.svc/Products(1)/$links/ProductDetail"}}},"Categories":{"__deferred":{"uri":"https://services.odata.org/V3/OData/OData.svc/Products(1)/Categories"}},"Supplier":{"__deferred":{"uri":"https://services.odata.org/V3/OData/OData.svc/Products(1)/Supplier"}},"ProductDetail":{"__deferred":{"uri":"https://services.odata.org/V3/OData/OData.svc/Products(1)/ProductDetail"}},"ID":1,"Name":"Milk","Description":"Low fat milk","ReleaseDate":"1995-10-01T00:00:00","DiscontinuedDate":null,"Rating":3,"Price":3.5}],"__count":"11"}}
+--batchresponse_80e7eebd-fa8d-4a84-b5f9-ddb29d534c98
+Content-Type: application/http
+Content-Transfer-Encoding: binary
+
+HTTP/1.1 200 OK
+DataServiceVersion: 3.0;
+Content-Type: application/json;odata=minimalmetadata;streaming=true;charset=utf-8
+X-Content-Type-Options: nosniff
+Cache-Control: no-cache
+
+{"odata.metadata":"https://services.odata.org/V3/OData/OData.svc/$metadata#Products","value":[{"ID":0,"Name":"Bread","Description":"Whole grain bread","ReleaseDate":"1992-01-01T00:00:00","DiscontinuedDate":null,"Rating":4,"Price":2.5},{"ID":1,"Name":"Milk","Description":"Low fat milk","ReleaseDate":"1995-10-01T00:00:00","DiscontinuedDate":null,"Rating":3,"Price":3.5}]}
+--batchresponse_80e7eebd-fa8d-4a84-b5f9-ddb29d534c98--
