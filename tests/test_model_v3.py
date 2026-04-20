@@ -30,6 +30,33 @@ def test_v3_builder_accepts_microsoft_2009_11_edm_namespace(schema_v3):
     assert schema_v3.entity_type('Document').name == 'Document'
 
 
+def test_v3_config_defaults_to_verbose_json_with_minimal_light_metadata():
+    config = Config()
+
+    assert config.json_format == 'verbose'
+    assert config.json_metadata == 'minimal'
+
+
+@pytest.mark.parametrize('json_format', ['atom', 'json'])
+def test_v3_config_rejects_unknown_json_formats(json_format):
+    with pytest.raises(ValueError) as exc_info:
+        Config(json_format=json_format)
+
+    assert str(exc_info.value) == (
+        f'Unsupported OData V3 JSON format {json_format}. '
+        f"Expected one of {Config.VALID_JSON_FORMATS}")
+
+
+@pytest.mark.parametrize('json_metadata', ['summary', 'verbose', ''])
+def test_v3_config_rejects_unknown_json_metadata_levels(json_metadata):
+    with pytest.raises(ValueError) as exc_info:
+        Config(json_metadata=json_metadata)
+
+    assert str(exc_info.value) == (
+        f'Unsupported OData V3 JSON metadata level {json_metadata}. '
+        f"Expected one of {Config.VALID_JSON_METADATA}")
+
+
 def test_v3_aliases_resolve_property_types_from_schema_alias_and_using(schema_v3):
     """V3 property types should resolve aliases declared by Schema Alias and edm:Using."""
 

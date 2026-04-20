@@ -4,6 +4,8 @@ These files are captured fixtures for offline V3 regression tests.
 
 Capture date: `2026-04-16`
 
+JSON Light capture date: `2026-04-20`
+
 Sources:
 
 - `odata_service_metadata.xml`
@@ -14,6 +16,15 @@ Sources:
   - `https://services.odata.org/V3/Northwind/Northwind.svc/$metadata`
 - `odata_product_1.json`
   - `https://services.odata.org/V3/OData/OData.svc/Products(1)`
+- `odata_product_1_light_minimal.json`
+  - `https://services.odata.org/V3/OData/OData.svc/Products(1)`
+  - `Accept: application/json;odata=minimalmetadata`
+- `odata_product_1_light_full.json`
+  - `https://services.odata.org/V3/OData/OData.svc/Products(1)`
+  - `Accept: application/json;odata=fullmetadata`
+- `odata_product_1_light_none.json`
+  - `https://services.odata.org/V3/OData/OData.svc/Products(1)`
+  - `Accept: application/json;odata=nometadata`
 - `odata_category_0.json`
   - `https://services.odata.org/V3/OData/OData.svc/Categories(0)`
 - `odata_supplier_0.json`
@@ -22,6 +33,15 @@ Sources:
   - `https://services.odata.org/V3/OData/OData.svc/GetProductsByRating?rating=5`
 - `odata_persondetail_1_photo.bin`
   - `https://services.odata.org/V3/OData/OData.svc/PersonDetails(1)/Photo`
+- `odata_products_top_2_light_minimal.json`
+  - `https://services.odata.org/V3/OData/OData.svc/Products?$top=2`
+  - `Accept: application/json;odata=minimalmetadata`
+- `odata_products_top_2_light_full.json`
+  - `https://services.odata.org/V3/OData/OData.svc/Products?$top=2`
+  - `Accept: application/json;odata=fullmetadata`
+- `odata_products_top_2_light_none.json`
+  - `https://services.odata.org/V3/OData/OData.svc/Products?$top=2`
+  - `Accept: application/json;odata=nometadata`
 - `northwind_product_1.json`
   - `https://services.odata.org/V3/Northwind/Northwind.svc/Products(1)`
 - `northwind_products_top_2.json`
@@ -32,3 +52,4 @@ Notes:
 - These fixtures are intentionally checked in so default CI does not depend on outbound network access.
 - Live smoke coverage lives separately behind `PYODATA_RUN_REFERENCE_SERVICE_LIVE=1`.
 - The read-write service is referenced only via the canonical `(S(readwrite))` URL. Tests must not hardcode redirected session-specific URLs.
+- The JSON Light fixtures were captured with explicit metadata-specific `Accept` values to preserve representative `minimal`, `full`, and `none` payload shapes. Runtime negotiation now follows the V3 compatibility header `application/json;odata=light;q=1,application/json;odata=verbose;q=0.5`.

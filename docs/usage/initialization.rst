@@ -40,8 +40,33 @@ or ``odata_version=3`` explicitly:
         requests.Session(),
         odata_version=pyodata.Client.ODATA_VERSION_3)
 
-The current OData V3 milestone supports Verbose JSON only. The supported V3
-slice currently includes:
+The current OData V3 milestone defaults to Verbose JSON. You can opt into JSON
+Light per client by
+passing :class:`pyodata.v3.model.Config` with ``json_format='light'`` and
+``json_metadata='minimal'``, ``'full'``, or ``'none'``:
+
+.. code-block:: python
+
+    import pyodata
+    import requests
+
+    SERVICE_URL = 'http://services.odata.org/V3/OData/OData.svc/'
+
+    service_v3_light = pyodata.Client(
+        SERVICE_URL,
+        requests.Session(),
+        odata_version=pyodata.Client.ODATA_VERSION_3,
+        config=pyodata.v3.model.Config(
+            json_format='light',
+            json_metadata='minimal'))
+
+In JSON Light mode, pyodata follows the V3 compatibility guidance and sends
+``Accept: application/json;odata=light;q=1,application/json;odata=verbose;q=0.5``.
+The ``json_metadata`` setting describes the supported JSON Light response shapes
+the client is prepared to work with, and pyodata still accepts Verbose JSON as
+a compatibility fallback if the service ignores the preferred ``Accept`` header.
+
+The supported V3 slice currently includes:
 
 - explicit client bootstrap
 - metadata parsing for the tested V3 fixtures
@@ -55,7 +80,7 @@ slice currently includes:
 
 The following V3 areas remain unsupported or partial:
 
-- JSON Light and Atom payload handling
+- Atom payload handling
 - broad stream upload and write support
 - general spatial URL literal, filter, and operation-parameter support
 

@@ -11,6 +11,7 @@ import pyodata.v2.service
 import pyodata.v3.service
 from pyodata.exceptions import PyODataException, HttpError
 from pyodata.v2.model import ParserError, PolicyWarning, PolicyFatal, PolicyIgnore, Config
+from pyodata.v3.model import Config as V3Config
 
 SERVICE_URL = 'http://example.com'
 
@@ -33,7 +34,7 @@ def test_create_client_for_local_metadata(metadata):
     client = pyodata.Client(SERVICE_URL, requests, metadata=metadata)
 
     assert isinstance(client, pyodata.v2.service.Service)
-    assert client.schema.is_valid == True
+    assert client.schema.is_valid
 
     assert len(client.schema.entity_sets) != 0
 
@@ -115,6 +116,31 @@ def test_v3_get_entity_uses_verbose_json_headers(metadata_v3):
     assert entity.Id == 1
     assert entity.Title == 'Spec draft'
     assert responses.calls[0].request.headers['Accept'] == 'application/json;odata=verbose'
+    assert responses.calls[0].request.headers['MaxDataServiceVersion'] == '3.0'
+
+
+@responses.activate
+def test_v3_get_entity_uses_json_light_headers_when_configured(metadata_v3):
+    responses.add(
+        responses.GET,
+        f"{SERVICE_URL}/Documents(1)",
+        content_type='application/json',
+        body='{"Id": 1, "Title": "Spec draft"}',
+        status=200)
+
+    client = pyodata.Client(
+        SERVICE_URL,
+        requests,
+        odata_version=pyodata.Client.ODATA_VERSION_3,
+        config=V3Config(json_format='light', json_metadata='full'),
+        metadata=metadata_v3)
+
+    entity = client.entity_sets.Documents.get_entity(1, encode_path=False).execute()
+
+    assert entity.Id == 1
+    assert entity.Title == 'Spec draft'
+    assert responses.calls[0].request.headers['Accept'] == (
+        'application/json;odata=light;q=1,application/json;odata=verbose;q=0.5')
     assert responses.calls[0].request.headers['MaxDataServiceVersion'] == '3.0'
 
 

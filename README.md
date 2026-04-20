@@ -54,7 +54,8 @@ Python module without any additional configuration steps needed.
 ## Limitations
 
 - OData V3 support must be selected explicitly with `odata_version=3`.
-- OData V3 currently supports Verbose JSON only.
+- OData V3 defaults to Verbose JSON. JSON Light is available as an opt-in mode
+  via `pyodata.v3.model.Config(json_format='light', json_metadata=...)`.
 - The current V3 milestone covers client bootstrap, metadata parsing, entity
   querying and CRUD, function and action invocation, batch for the supported
   JSON request and response shapes, named and default stream reads, open types,
@@ -62,9 +63,12 @@ Python module without any additional configuration steps needed.
 - The V3 regression suite now includes captured fixtures from the public
   `services.odata.org` V3 reference services, plus opt-in live smoke coverage
   behind an environment variable.
-- OData V3 does not yet provide JSON Light or Atom support, broad stream upload
-  and write support, or general spatial URL literal and operation-parameter
-  support.
+- In JSON Light mode, pyodata follows the V3 compatibility guidance and sends
+  `Accept: application/json;odata=light;q=1,application/json;odata=verbose;q=0.5`,
+  while accepting supported minimal/full/none JSON Light response shapes and
+  still accepting Verbose JSON as a compatibility fallback.
+- OData V3 does not yet provide Atom support, broad stream upload and write
+  support, or general spatial URL literal and operation-parameter support.
 
 ## Known Issues
 
@@ -97,6 +101,15 @@ client_v3 = pyodata.Client(
     'http://services.odata.org/V3/OData/OData.svc/',
     requests.Session(),
     odata_version=pyodata.Client.ODATA_VERSION_3)
+
+# Opt into OData V3 JSON Light
+client_v3_light = pyodata.Client(
+    'http://services.odata.org/V3/OData/OData.svc/',
+    requests.Session(),
+    odata_version=pyodata.Client.ODATA_VERSION_3,
+    config=pyodata.v3.model.Config(
+        json_format='light',
+        json_metadata='minimal'))
 ```
 
 Find more sophisticated examples in [The User Guide](docs/usage/README.md).

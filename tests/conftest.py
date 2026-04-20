@@ -62,6 +62,21 @@ def reference_v3_odata_product_payload():
 
 
 @pytest.fixture
+def reference_v3_odata_product_light_minimal_payload():
+    return contents_of_fixtures_file('fixtures/reference_services_v3/odata_product_1_light_minimal.json')
+
+
+@pytest.fixture
+def reference_v3_odata_product_light_full_payload():
+    return contents_of_fixtures_file('fixtures/reference_services_v3/odata_product_1_light_full.json')
+
+
+@pytest.fixture
+def reference_v3_odata_product_light_none_payload():
+    return contents_of_fixtures_file('fixtures/reference_services_v3/odata_product_1_light_none.json')
+
+
+@pytest.fixture
 def reference_v3_odata_products_by_rating_payload():
     return contents_of_fixtures_file('fixtures/reference_services_v3/odata_get_products_by_rating_rating_5.json')
 
@@ -79,6 +94,21 @@ def reference_v3_northwind_product_payload():
 @pytest.fixture
 def reference_v3_northwind_products_top_2_payload():
     return contents_of_fixtures_file('fixtures/reference_services_v3/northwind_products_top_2.json')
+
+
+@pytest.fixture
+def reference_v3_odata_products_top_2_light_minimal_payload():
+    return contents_of_fixtures_file('fixtures/reference_services_v3/odata_products_top_2_light_minimal.json')
+
+
+@pytest.fixture
+def reference_v3_odata_products_top_2_light_full_payload():
+    return contents_of_fixtures_file('fixtures/reference_services_v3/odata_products_top_2_light_full.json')
+
+
+@pytest.fixture
+def reference_v3_odata_products_top_2_light_none_payload():
+    return contents_of_fixtures_file('fixtures/reference_services_v3/odata_products_top_2_light_none.json')
 
 
 @pytest.fixture

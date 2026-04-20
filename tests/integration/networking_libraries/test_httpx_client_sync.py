@@ -8,7 +8,6 @@ https://www.python-httpx.org/
 
 import httpx
 from httpx import Response
-import respx
 import pytest
 
 import pyodata.v2.service
@@ -16,6 +15,7 @@ import pyodata.v3.service
 from pyodata import Client
 from pyodata.exceptions import PyODataException, HttpError
 from pyodata.v2.model import ParserError, PolicyWarning, PolicyFatal, PolicyIgnore, Config
+from pyodata.v3.model import Config as V3Config
 
 SERVICE_URL = 'http://example.com'
 
@@ -35,7 +35,7 @@ def test_create_client_for_local_metadata(metadata):
     client = pyodata.Client(SERVICE_URL, httpx, metadata=metadata)
 
     assert isinstance(client, pyodata.v2.service.Service)
-    assert client.schema.is_valid == True
+    assert client.schema.is_valid
     assert len(client.schema.entity_sets) != 0
 
 
@@ -112,6 +112,30 @@ def test_v3_get_entity_uses_verbose_json_headers(respx_mock, metadata_v3):
     assert entity.Id == 1
     assert entity.Title == 'Spec draft'
     assert entity_route.calls.last.request.headers['Accept'] == 'application/json;odata=verbose'
+    assert entity_route.calls.last.request.headers['MaxDataServiceVersion'] == '3.0'
+
+
+def test_v3_get_entity_uses_json_light_headers_when_configured(respx_mock, metadata_v3):
+    entity_route = respx_mock.get(f"{SERVICE_URL}/Documents(1)").mock(
+        return_value=Response(
+            status_code=200,
+            content=b'{"Id": 1, "Title": "Spec draft"}',
+            headers=httpx.Headers({'Content-Type': 'application/json'}))
+    )
+
+    client = pyodata.Client(
+        SERVICE_URL,
+        httpx,
+        odata_version=Client.ODATA_VERSION_3,
+        config=V3Config(json_format='light', json_metadata='full'),
+        metadata=metadata_v3)
+
+    entity = client.entity_sets.Documents.get_entity(1, encode_path=False).execute()
+
+    assert entity.Id == 1
+    assert entity.Title == 'Spec draft'
+    assert entity_route.calls.last.request.headers['Accept'] == (
+        'application/json;odata=light;q=1,application/json;odata=verbose;q=0.5')
     assert entity_route.calls.last.request.headers['MaxDataServiceVersion'] == '3.0'
 
 

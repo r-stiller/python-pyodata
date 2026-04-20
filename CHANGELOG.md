@@ -10,8 +10,21 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Captured OData V3 reference-service fixtures and opt-in live smoke tests for
   `https://services.odata.org/V3/OData/OData.svc/` and
   `https://services.odata.org/V3/Northwind/Northwind.svc/`.
+- Captured OData V3 JSON Light reference-service fixtures for entity and
+  collection responses from `https://services.odata.org/V3/OData/OData.svc/`.
 
 ### Changed
+- OData V3 now supports opt-in JSON Light via `pyodata.v3.model.Config` with
+  configurable supported metadata shapes (`minimal`, `full`, or `none`) while
+  keeping the default V3 mode on Verbose JSON and leaving V2 behavior unchanged.
+- OData V3 JSON Light mode now follows the V3 compatibility header guidance for
+  reads, writes, operations, and batch subrequests
+  (`application/json;odata=light;q=1,application/json;odata=verbose;q=0.5`),
+  uses raw JSON request bodies, and still accepts Verbose JSON responses as a
+  compatibility fallback.
+- OData V3 response parsing now accepts the supported JSON Light entity,
+  collection, property, operation, and batch payload shapes and strips
+  JSON Light control annotations before open-type caching.
 - OData V3 unbound function invocation now follows the public reference-service
   query-string parameter shape instead of path-style arguments.
 - OData V3 `Edm.DateTime` payload parsing now accepts the ISO timestamp shape

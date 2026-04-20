@@ -2,12 +2,14 @@
 
 import json
 import logging
+from dataclasses import dataclass
 from functools import partial
 from urllib.parse import urljoin
 
 from pyodata.v2 import model
 from pyodata.v2.service import *  # noqa: F401,F403
 from pyodata.exceptions import HttpError, PyODataException
+from pyodata.v3.model import Config as V3Config
 from pyodata.v2.service import (
     HTTP_CODE_CREATED,
     HTTP_CODE_OK,
@@ -29,6 +31,16 @@ from pyodata.v2.service import (
 )
 
 
+JSON_LIGHT_ACCEPT_HEADER = 'application/json;odata=light;q=1,application/json;odata=verbose;q=0.5'
+
+
+@dataclass
+class _NormalizedPayload:
+    payload: object
+    total_count: int = None
+    next_url: str = None
+
+
 def _is_spatial_type(typ):
     if typ is None:
         return False
@@ -36,32 +48,110 @@ def _is_spatial_type(typ):
     return typ.name.startswith('Edm.Geography') or typ.name.startswith('Edm.Geometry')
 
 
+def _is_json_light_control_annotation(name):
+    return name.startswith('odata.') or name.startswith('@odata.') or '@odata.' in name
+
+
+def _strip_json_light_control_annotations(value):
+    if isinstance(value, list):
+        return [_strip_json_light_control_annotations(item) for item in value]
+
+    if isinstance(value, dict):
+        return {
+            key: _strip_json_light_control_annotations(item)
+            for key, item in value.items()
+            if not _is_json_light_control_annotation(key)
+        }
+
+    return value
+
+
+def _is_json_light_top_level_value_payload(content):
+    non_annotation_keys = [
+        key for key in content.keys()
+        if not _is_json_light_control_annotation(key)
+    ]
+    return len(non_annotation_keys) == 1 and non_annotation_keys[0] == 'value'
+
+
+def _normalize_v3_json_payload(content):
+    if not isinstance(content, dict):
+        raise PyODataException(
+            'OData V3 expected a JSON object response payload')
+
+    if 'd' in content:
+        payload = _strip_json_light_control_annotations(content['d'])
+        total_count = None
+        next_url = None
+
+        if isinstance(payload, dict):
+            if '__count' in payload:
+                total_count = int(payload['__count'])
+            if '__next' in payload:
+                next_url = payload['__next']
+
+        return _NormalizedPayload(payload, total_count=total_count, next_url=next_url)
+
+    total_count = None
+    next_url = None
+
+    if 'odata.count' in content:
+        total_count = int(content['odata.count'])
+    if 'odata.nextLink' in content:
+        next_url = content['odata.nextLink']
+
+    if _is_json_light_top_level_value_payload(content):
+        return _NormalizedPayload(
+            _strip_json_light_control_annotations(content['value']),
+            total_count=total_count,
+            next_url=next_url)
+
+    return _NormalizedPayload(_strip_json_light_control_annotations(content))
+
+
 class _ODataV3RequestPolicy(_ODataRequestPolicy):
     """OData V3 request/response policy for the current first milestone."""
 
+    def __init__(self, config=None):
+        self._config = config or V3Config()
+
+    def _json_light_accept_header(self):
+        return JSON_LIGHT_ACCEPT_HEADER
+
     def json_get_headers(self):
+        if self._config.json_format == V3Config.JSON_FORMAT_LIGHT:
+            accept = self._json_light_accept_header()
+        else:
+            accept = 'application/json;odata=verbose'
+
         return {
-            'Accept': 'application/json;odata=verbose',
+            'Accept': accept,
             'MaxDataServiceVersion': '3.0',
         }
 
     def json_write_headers(self, include_x_requested_with=False):
-        headers = {
-            'Accept': 'application/json;odata=verbose',
-            'Content-Type': 'application/json;odata=verbose',
-            'MaxDataServiceVersion': '3.0',
-        }
+        if self._config.json_format == V3Config.JSON_FORMAT_LIGHT:
+            headers = {
+                'Accept': self._json_light_accept_header(),
+                'Content-Type': 'application/json',
+                'MaxDataServiceVersion': '3.0',
+            }
+        else:
+            headers = {
+                'Accept': 'application/json;odata=verbose',
+                'Content-Type': 'application/json;odata=verbose',
+                'MaxDataServiceVersion': '3.0',
+            }
+
         if include_x_requested_with:
             headers['X-Requested-With'] = 'X'
         return headers
 
-    def extract_json_payload_from_content(self, content):
-        if not isinstance(content, dict) or 'd' not in content:
-            raise PyODataException(
-                'OData V3 currently supports Verbose JSON only; '
-                'expected a top-level "d" envelope in the response payload')
+    def extract_json_payload(self, response):
+        return self.extract_json_payload_from_content(response.json())
 
-        return content['d']
+    def extract_json_payload_from_content(self, content):
+        return _normalize_v3_json_payload(content).payload
 
 
 class Service(_Service):
@@ -71,8 +161,12 @@ class Service(_Service):
 
     def __init__(self, url, schema, connection, config=None):
         super(Service, self).__init__(url, schema, connection, config=config)
+        self._request_policy = self.REQUEST_POLICY_CLASS(config)
         self._entity_container = EntityContainer(self)
         self._function_container = FunctionContainer(self)
+
+    def extract_json_payload_metadata_from_content(self, content):
+        return _normalize_v3_json_payload(content)
 
 
 class FunctionRequest(_FunctionRequest):
@@ -288,7 +382,10 @@ def _operation_response_handler(service, function_import, response, bound_entity
 
     if isinstance(function_import.return_type, model.Collection):
         item_type = function_import.return_type.item_type
-        collection_data = response_data.get('results', response_data)
+        if isinstance(response_data, dict):
+            collection_data = response_data.get('results', response_data)
+        else:
+            collection_data = response_data
 
         if isinstance(item_type, model.EntityType):
             entity_set = _resolve_entity_set_for_return_type(service, function_import, bound_entity_set)
@@ -358,6 +455,7 @@ def _normalize_dynamic_value(value):
     return value
 
 
+
 def _build_entity_values(entity_type, entity):
     if isinstance(entity, list):
         return [_build_entity_values(entity_type, item) for item in entity]
@@ -387,7 +485,7 @@ def _cache_dynamic_properties(cache, entity_type, proprties):
         return
 
     for key, value in proprties.items():
-        if key == '__metadata':
+        if key == '__metadata' or _is_json_light_control_annotation(key):
             continue
 
         if entity_type.has_proprty(key):
@@ -475,6 +573,28 @@ class EntityProxy(_BoundOperationTargetMixin, _EntityProxy):
     def _get_bound_operation_context(self):
         return self.get_path(), self._entity_set, self._entity_type, False
 
+    def get_proprty(self, name, connection=None):
+        """Returns value of the property."""
+
+        self._logger.info('Initiating property request for %s', name)
+
+        def proprty_get_handler(key, proprty, response):
+            if response.status_code != HTTP_CODE_OK:
+                raise HttpError('HTTP GET for Attribute {0} of Entity {1} failed with status code {2}'
+                                .format(proprty.name, key, response.status_code), response)
+
+            data = self._service.extract_json_payload(response)
+            if isinstance(data, dict):
+                data = data[proprty.name]
+
+            return proprty.from_json(data)
+
+        path = urljoin(self.get_path(), name)
+        return self._service.http_get_odata(
+            path,
+            partial(proprty_get_handler, path, self._entity_type.proprty(name)),
+            connection=connection)
+
     def media_stream(self, connection=None):
         _validate_media_entity(self._entity_type)
 
@@ -533,14 +653,15 @@ class EntitySetProxy(_BoundOperationTargetMixin, _EntitySetProxy):
             if isinstance(content, int):
                 return content
 
-            entities = self._service.extract_json_payload_from_content(content)
-            total_count = None
-            next_url = None
+            normalized = self._service.extract_json_payload_metadata_from_content(content)
+            entities = normalized.payload
+            total_count = normalized.total_count
+            next_url = normalized.next_url
 
             if isinstance(entities, dict):
-                if '__count' in entities:
+                if total_count is None and '__count' in entities:
                     total_count = int(entities['__count'])
-                if '__next' in entities:
+                if next_url is None and '__next' in entities:
                     next_url = entities['__next']
                 entities = entities['results']
 

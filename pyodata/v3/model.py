@@ -10,7 +10,7 @@ from lxml import etree
 from pyodata.exceptions import PyODataException, PyODataParserError
 from pyodata.v2.model import Config as _Config
 from pyodata.v2.model import MetadataBuilder as _MetadataBuilder
-from pyodata.v2.model import ParserError, PolicyIgnore, Schema, Typ, TypTraits, Types
+from pyodata.v2.model import ParserError, PolicyIgnore, Schema, Typ, TypTraits, TypeInfo, Types  # noqa: F401
 
 
 def _copy_spatial_value(value):
@@ -94,11 +94,22 @@ def register_v3_primitive_types():
 class Config(_Config):
     """V3 bootstrap config with tolerant property parsing by default."""
 
+    JSON_FORMAT_VERBOSE = 'verbose'
+    JSON_FORMAT_LIGHT = 'light'
+    JSON_METADATA_MINIMAL = 'minimal'
+    JSON_METADATA_FULL = 'full'
+    JSON_METADATA_NONE = 'none'
+
+    VALID_JSON_FORMATS = (JSON_FORMAT_VERBOSE, JSON_FORMAT_LIGHT)
+    VALID_JSON_METADATA = (JSON_METADATA_MINIMAL, JSON_METADATA_FULL, JSON_METADATA_NONE)
+
     def __init__(self,
                  custom_error_policies=None,
                  default_error_policy=None,
                  xml_namespaces=None,
-                 retain_null=False):
+                 retain_null=False,
+                 json_format=JSON_FORMAT_VERBOSE,
+                 json_metadata=JSON_METADATA_MINIMAL):
 
         policies = dict(custom_error_policies or {})
         policies.setdefault(ParserError.PROPERTY, PolicyIgnore())
@@ -110,6 +121,11 @@ class Config(_Config):
             retain_null=retain_null)
 
         self._type_aliases = {}
+        self._json_format = None
+        self._json_metadata = None
+
+        self.json_format = json_format
+        self.json_metadata = json_metadata
 
     @property
     def type_aliases(self):
@@ -118,6 +134,32 @@ class Config(_Config):
     @type_aliases.setter
     def type_aliases(self, value):
         self._type_aliases = dict(value)
+
+    @property
+    def json_format(self):
+        return self._json_format
+
+    @json_format.setter
+    def json_format(self, value):
+        if value not in self.VALID_JSON_FORMATS:
+            raise ValueError(
+                f'Unsupported OData V3 JSON format {value}. '
+                f'Expected one of {self.VALID_JSON_FORMATS}')
+
+        self._json_format = value
+
+    @property
+    def json_metadata(self):
+        return self._json_metadata
+
+    @json_metadata.setter
+    def json_metadata(self, value):
+        if value not in self.VALID_JSON_METADATA:
+            raise ValueError(
+                f'Unsupported OData V3 JSON metadata level {value}. '
+                f'Expected one of {self.VALID_JSON_METADATA}')
+
+        self._json_metadata = value
 
 
 class MetadataBuilder(_MetadataBuilder):

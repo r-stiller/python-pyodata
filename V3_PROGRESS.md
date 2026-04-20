@@ -6,7 +6,7 @@ It is intended as an internal engineering snapshot, not as end-user documentatio
 
 ## Current Status
 
-The repository now has an explicit first OData V3 milestone: opt-in bootstrap via `odata_version=3`, Verbose-JSON-only request and response handling, a coherent tested runtime slice, supported batch handling for the covered request and response shapes, and networking-library integration coverage across `requests`, `httpx` sync, `httpx` async, and `aiohttp`.
+The repository now has an explicit first OData V3 milestone: opt-in bootstrap via `odata_version=3`, default Verbose JSON plus opt-in JSON Light request negotiation and parsing, a coherent tested runtime slice, supported batch handling for the covered request and response shapes, and networking-library integration coverage across `requests`, `httpx` sync, `httpx` async, and `aiohttp`.
 
 ## Implemented
 
@@ -111,6 +111,22 @@ The repository now has an explicit first OData V3 milestone: opt-in bootstrap vi
 - Updated shared `Edm.DateTime` JSON parsing to accept the ISO timestamp payload shape returned by the public V3 reference service.
 - Added default HTTP-method inference for function imports whose metadata omits `m:HttpMethod`, covering the current public read-write V3 metadata.
 
+### Session 12 JSON Light support
+
+- Extended `pyodata.v3.model.Config` with `json_format` and `json_metadata`.
+- Kept the default V3 mode on Verbose JSON and left V2 behavior unchanged.
+- Added opt-in JSON Light header negotiation for read and write requests, including operation calls and batch subrequests, using the V3 compatibility header `application/json;odata=light;q=1,application/json;odata=verbose;q=0.5`.
+- Kept JSON Light write bodies as raw JSON without introducing Verbose `d` wrappers or synthesized annotations.
+- Kept `json_metadata` as V3-local configuration for the supported JSON Light payload shapes rather than varying the on-wire `Accept` header.
+- Added a V3-local response normalizer that accepts:
+  - Verbose JSON
+  - JSON Light direct entity payloads
+  - JSON Light top-level `value` payloads for properties, primitives, and collections
+  - JSON Light `odata.count` and `odata.nextLink`
+- Added stripping of JSON Light control annotations such as `odata.*` and `*@odata.*` before open-type caching so fullmetadata responses do not leak bogus dynamic properties.
+- Added JSON Light coverage for entity reads, collection queries, property reads, unbound and bound operation results, and batch subresponses.
+- Added captured JSON Light fixtures from the public `services.odata.org` V3 reference service for offline regression coverage.
+
 ## Intentionally Deferred
 
 The following are not implemented yet:
@@ -120,7 +136,6 @@ The following are not implemented yet:
 - Spatial query and filter syntax.
 - Spatial function/action parameter encoding.
 - Named-stream writes and any broader upload API.
-- JSON Light payload support.
 - Atom payload support for V3 runtime requests and responses.
 - Broad parser redesign across all protocol versions.
 
@@ -143,7 +158,8 @@ V3 model coverage currently passes for:
 V3 service coverage currently passes for:
 
 - V3 Verbose JSON request headers for read and write requests.
-- Explicit failure for non-Verbose JSON payloads.
+- Opt-in V3 JSON Light request headers for read and write requests.
+- JSON Light entity, collection, property, operation, and batch response parsing with Verbose fallback.
 - Unbound function query-string URL generation aligned with the public V3 reference service.
 - Deterministic ordering of unbound function parameters.
 - Representative primitive literal formatting for unbound function parameters.
@@ -175,6 +191,7 @@ V3 networking-library integration coverage currently passes for:
 - Async bootstrap with `httpx.AsyncClient`.
 - Async bootstrap with `aiohttp.ClientSession`.
 - Representative V3 entity reads with Verbose JSON headers for all four supported client integrations.
+- Representative V3 entity reads with JSON Light headers for all four supported client integrations.
 - Captured-fixture regression coverage for the public `services.odata.org` V3 `OData.svc` and `Northwind` services.
 
 ## Main Files Involved So Far
@@ -190,7 +207,7 @@ V3 networking-library integration coverage currently passes for:
 
 ## Next Likely Milestones
 
-1. Decide whether the first V3 milestone should grow beyond Verbose JSON into JSON Light, or whether that remains explicitly unsupported.
+1. Decide whether JSON Light support should grow beyond the current covered entity, collection, property, operation, and batch slice.
 2. Decide whether the compact V3 scope needs named-stream writes or whether reads remain sufficient.
 3. Decide whether spatial support should stay payload-only or expand into key literals, filters, and operation parameters.
 4. Expand V3 runtime support beyond the current operation, batch, stream, open-type, and payload-only spatial slice only when tests require it.

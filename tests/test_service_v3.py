@@ -6,6 +6,7 @@ import json
 import pytest
 
 import pyodata
+import pyodata.v3.model
 import pyodata.v2.service
 import pyodata.v3.service
 from pyodata.exceptions import PyODataException
@@ -15,6 +16,23 @@ URL_ROOT = 'http://odatapy.example.com'
 REFERENCE_ODATA_URL_ROOT = 'https://services.odata.org/V3/OData/OData.svc/'
 REFERENCE_NORTHWIND_URL_ROOT = 'https://services.odata.org/V3/Northwind/Northwind.svc/'
 DUMMY_CONNECTION = object()
+
+
+def _light_config(json_metadata='minimal'):
+    return pyodata.v3.model.Config(json_format='light', json_metadata=json_metadata)
+
+
+def _light_accept_header(json_metadata):
+    del json_metadata
+    return 'application/json;odata=light;q=1,application/json;odata=verbose;q=0.5'
+
+
+def _service_with_light_config(schema_v3, connection=DUMMY_CONNECTION, json_metadata='minimal'):
+    return pyodata.v3.service.Service(
+        URL_ROOT,
+        schema_v3,
+        connection,
+        config=_light_config(json_metadata))
 
 
 class _StaticMetadataConnection:
@@ -179,6 +197,70 @@ def test_v3_json_write_requests_use_verbose_json_headers(service_v3):
     }
 
 
+@pytest.mark.parametrize('json_metadata', ['minimal', 'full', 'none'])
+def test_v3_json_light_read_requests_use_configured_headers(schema_v3, json_metadata):
+    service = _service_with_light_config(schema_v3, json_metadata=json_metadata)
+
+    entity_request = service.entity_sets.Documents.get_entity(1)
+    query_request = service.entity_sets.Documents.get_entities()
+    function_request = service.functions.SearchDocuments
+    bound_function_request = service.entity_sets.Documents.get_entity(1).functions.GetPeerDocument
+
+    expected_headers = {
+        'Accept': _light_accept_header(json_metadata),
+        'MaxDataServiceVersion': '3.0',
+    }
+
+    assert entity_request.get_headers() == expected_headers
+    assert query_request.get_headers() == expected_headers
+    assert function_request.get_headers() == expected_headers
+    assert bound_function_request.get_headers() == expected_headers
+
+
+@pytest.mark.parametrize('json_metadata', ['minimal', 'full', 'none'])
+def test_v3_json_light_write_requests_use_configured_headers(schema_v3, json_metadata):
+    service = _service_with_light_config(schema_v3, json_metadata=json_metadata)
+
+    create_request = service.entity_sets.Documents.create_entity()
+    update_request = service.entity_sets.Documents.update_entity(1)
+    unbound_action = service.functions.ApproveDocuments
+    bound_action = service.entity_sets.Documents.get_entity(1).actions.Approve
+
+    expected_write_headers = {
+        'Accept': _light_accept_header(json_metadata),
+        'Content-Type': 'application/json',
+        'MaxDataServiceVersion': '3.0',
+    }
+
+    assert create_request.get_headers() == {
+        **expected_write_headers,
+        'X-Requested-With': 'X',
+    }
+    assert update_request.get_headers() == expected_write_headers
+    assert unbound_action.get_headers() == expected_write_headers
+    assert bound_action.get_headers() == expected_write_headers
+
+
+@pytest.mark.parametrize('json_metadata', ['minimal', 'full', 'none'])
+def test_v3_json_light_batch_request_uses_configured_subrequest_headers(schema_v3, json_metadata):
+    service = _service_with_light_config(schema_v3, json_metadata=json_metadata)
+
+    batch = service.create_batch('v3light')
+    changeset = service.create_changeset('v3light')
+
+    batch.add_request(service.entity_sets.Documents.get_entity(1, encode_path=False))
+    changeset.add_request(
+        service.entity_sets.Documents.get_entity(1, encode_path=False).actions.Approve.parameter(
+            'Comment', 'ship it'))
+    batch.add_request(changeset)
+
+    batch_body = batch.get_body()
+
+    assert f'Accept: {_light_accept_header(json_metadata)}' in batch_body
+    assert 'Content-Type: application/json' in batch_body
+    assert 'Content-Type: application/json;odata=verbose' not in batch_body
+
+
 def test_v2_json_request_headers_remain_unchanged(service_v2_compat):
     entity_request = service_v2_compat.entity_sets.Documents.get_entity(1)
     create_request = service_v2_compat.entity_sets.Documents.create_entity()
@@ -193,20 +275,18 @@ def test_v2_json_request_headers_remain_unchanged(service_v2_compat):
     }
 
 
-def test_v3_non_verbose_json_payload_fails_clearly(schema_v3):
+def test_v3_invalid_non_object_json_payload_fails_clearly(schema_v3):
     connection = _StaticResponseConnection(pyodata.v2.service.ODataHttpResponse(
         url=f'{URL_ROOT}/Documents(1)',
         headers={'Content-type': 'application/json'},
         status_code=200,
-        content=b'{"Id": 1, "Title": "Spec draft"}'))
+        content=b'[{"Id": 1, "Title": "Spec draft"}]'))
     service = pyodata.v3.service.Service(URL_ROOT, schema_v3, connection)
 
     with pytest.raises(PyODataException) as exc_info:
         service.entity_sets.Documents.get_entity(1, encode_path=False).execute()
 
-    assert str(exc_info.value) == (
-        'OData V3 currently supports Verbose JSON only; '
-        'expected a top-level "d" envelope in the response payload')
+    assert str(exc_info.value) == 'OData V3 expected a JSON object response payload'
 
 
 def test_v3_unbound_function_uses_query_string_parameters(service_v3):
@@ -279,6 +359,36 @@ def test_reference_v3_odata_entity_read_accepts_iso_datetime_payloads(
         REFERENCE_ODATA_URL_ROOT,
         connection,
         odata_version=3,
+        metadata=reference_v3_odata_metadata)
+
+    product = service.entity_sets.Products.get_entity(1, encode_path=False).execute()
+
+    assert product.ID == 1
+    assert product.Name == 'Milk'
+    assert product.ReleaseDate == datetime.datetime(1995, 10, 1, 0, 0, tzinfo=datetime.timezone.utc)
+
+
+@pytest.mark.parametrize(('json_metadata', 'payload_fixture_name'), [
+    ('minimal', 'reference_v3_odata_product_light_minimal_payload'),
+    ('full', 'reference_v3_odata_product_light_full_payload'),
+    ('none', 'reference_v3_odata_product_light_none_payload'),
+])
+def test_reference_v3_odata_entity_read_accepts_captured_json_light_payloads(
+        reference_v3_odata_metadata,
+        request,
+        json_metadata,
+        payload_fixture_name):
+    payload = request.getfixturevalue(payload_fixture_name)
+    connection = _StaticResponseConnection(pyodata.v2.service.ODataHttpResponse(
+        url=f'{REFERENCE_ODATA_URL_ROOT}Products(1)',
+        headers={'Content-type': 'application/json'},
+        status_code=200,
+        content=payload))
+    service = pyodata.Client(
+        REFERENCE_ODATA_URL_ROOT,
+        connection,
+        odata_version=3,
+        config=_light_config(json_metadata),
         metadata=reference_v3_odata_metadata)
 
     product = service.entity_sets.Products.get_entity(1, encode_path=False).execute()
@@ -405,6 +515,189 @@ def test_reference_v3_northwind_entity_query_from_captured_payload(
         'params': '%24top=2',
         'data': None,
     }]
+
+
+@pytest.mark.parametrize(('json_metadata', 'payload_fixture_name'), [
+    ('minimal', 'reference_v3_odata_products_top_2_light_minimal_payload'),
+    ('full', 'reference_v3_odata_products_top_2_light_full_payload'),
+    ('none', 'reference_v3_odata_products_top_2_light_none_payload'),
+])
+def test_reference_v3_odata_entity_query_accepts_captured_json_light_payloads(
+        reference_v3_odata_metadata,
+        request,
+        json_metadata,
+        payload_fixture_name):
+    payload = request.getfixturevalue(payload_fixture_name)
+    connection = _StaticResponseConnection(pyodata.v2.service.ODataHttpResponse(
+        url=f'{REFERENCE_ODATA_URL_ROOT}Products?$top=2',
+        headers={'Content-type': 'application/json'},
+        status_code=200,
+        content=payload))
+    service = pyodata.Client(
+        REFERENCE_ODATA_URL_ROOT,
+        connection,
+        odata_version=3,
+        config=_light_config(json_metadata),
+        metadata=reference_v3_odata_metadata)
+
+    products = service.entity_sets.Products.get_entities().top(2).execute()
+
+    assert len(products) == 2
+    assert [product.ID for product in products] == [0, 1]
+
+
+@pytest.mark.parametrize(('json_metadata', 'payload'), [
+    ('minimal', {
+        'odata.metadata': f'{URL_ROOT}/$metadata#Documents/$entity',
+        'Id': 1,
+        'Title': 'Spec draft',
+        'DynamicTag': 'red',
+    }),
+    ('full', {
+        'odata.metadata': f'{URL_ROOT}/$metadata#Documents/$entity',
+        'odata.type': 'V3Demo.Model.Document',
+        'odata.id': f'{URL_ROOT}/Documents(1)',
+        'Id': 1,
+        'Title': 'Spec draft',
+        'DynamicTag': 'red',
+        'DynamicTag@odata.type': 'Edm.String',
+        'Thumbnail@odata.mediaReadLink': f'{URL_ROOT}/Documents(1)/Thumbnail',
+    }),
+    ('none', {
+        'Id': 1,
+        'Title': 'Spec draft',
+        'DynamicTag': 'red',
+    }),
+])
+def test_v3_json_light_entity_reads_are_materialized(schema_v3, json_metadata, payload):
+    connection = _StaticResponseConnection(pyodata.v2.service.ODataHttpResponse(
+        url=f'{URL_ROOT}/Documents(1)',
+        headers={'Content-type': 'application/json'},
+        status_code=200,
+        content=json.dumps(payload).encode('utf-8')))
+    service = _service_with_light_config(schema_v3, connection=connection, json_metadata=json_metadata)
+
+    entity = service.entity_sets.Documents.get_entity(1, encode_path=False).execute()
+
+    assert entity.Id == 1
+    assert entity.Title == 'Spec draft'
+    assert entity.DynamicTag == 'red'
+
+
+@pytest.mark.parametrize(('json_metadata', 'payload'), [
+    ('minimal', {
+        'odata.metadata': f'{URL_ROOT}/$metadata#Documents',
+        'odata.count': '2',
+        'odata.nextLink': f'{URL_ROOT}/Documents?$skiptoken=opaque',
+        'value': [
+            {'Id': 1, 'Title': 'Spec draft'},
+            {'Id': 2, 'Title': 'Peer draft'},
+        ],
+    }),
+    ('full', {
+        'odata.metadata': f'{URL_ROOT}/$metadata#Documents',
+        'odata.count': '2',
+        'odata.nextLink': f'{URL_ROOT}/Documents?$skiptoken=opaque',
+        'value': [
+            {
+                'odata.type': 'V3Demo.Model.Document',
+                'odata.id': f'{URL_ROOT}/Documents(1)',
+                'Id': 1,
+                'Title': 'Spec draft',
+            },
+            {
+                'odata.type': 'V3Demo.Model.Document',
+                'odata.id': f'{URL_ROOT}/Documents(2)',
+                'Id': 2,
+                'Title': 'Peer draft',
+            },
+        ],
+    }),
+    ('none', {
+        'value': [
+            {'Id': 1, 'Title': 'Spec draft'},
+            {'Id': 2, 'Title': 'Peer draft'},
+        ],
+    }),
+])
+def test_v3_json_light_entity_queries_materialize_top_level_value(schema_v3, json_metadata, payload):
+    connection = _StaticResponseConnection(pyodata.v2.service.ODataHttpResponse(
+        url=f'{URL_ROOT}/Documents',
+        headers={'Content-type': 'application/json'},
+        status_code=200,
+        content=json.dumps(payload).encode('utf-8')))
+    service = _service_with_light_config(schema_v3, connection=connection, json_metadata=json_metadata)
+
+    entities = service.entity_sets.Documents.get_entities().execute()
+
+    assert [entity.Id for entity in entities] == [1, 2]
+    if json_metadata != 'none':
+        assert entities.total_count == 2
+        assert entities.next_url == f'{URL_ROOT}/Documents?$skiptoken=opaque'
+
+
+@pytest.mark.parametrize('json_metadata', ['minimal', 'full', 'none'])
+def test_v3_json_light_property_reads_unwrap_top_level_value(schema_v3, json_metadata):
+    payload = {'value': 'Spec draft'}
+    if json_metadata != 'none':
+        payload['odata.metadata'] = f'{URL_ROOT}/$metadata#Documents(1)/Title'
+    if json_metadata == 'full':
+        payload['value@odata.type'] = 'Edm.String'
+
+    connection = _StaticResponseConnection(pyodata.v2.service.ODataHttpResponse(
+        url=f'{URL_ROOT}/Documents(1)/Title',
+        headers={'Content-type': 'application/json'},
+        status_code=200,
+        content=json.dumps(payload).encode('utf-8')))
+    service = _service_with_light_config(schema_v3, connection=connection, json_metadata=json_metadata)
+    entity = pyodata.v3.service.EntityProxy(
+        service,
+        service.schema.entity_set('Documents'),
+        service.schema.entity_type('Document'),
+        {'Id': 1, 'Title': 'Spec draft'})
+
+    title = entity.get_proprty('Title').execute()
+
+    assert title == 'Spec draft'
+
+
+def test_v3_json_light_unbound_function_collection_response_uses_top_level_value(schema_v3):
+    connection = _StaticResponseConnection(pyodata.v2.service.ODataHttpResponse(
+        url=f'{URL_ROOT}/SearchDocuments',
+        headers={'Content-type': 'application/json'},
+        status_code=200,
+        content=json.dumps({
+            'odata.metadata': f'{URL_ROOT}/$metadata#Documents',
+            'value': [
+                {'Id': 1, 'Title': 'Spec draft'},
+                {'Id': 2, 'Title': 'Peer draft'},
+            ],
+        }).encode('utf-8')))
+    service = _service_with_light_config(schema_v3, connection=connection)
+
+    result = service.functions.SearchDocuments.parameter('Query', 'draft').parameter('Limit', 2).execute()
+
+    assert [entity.Id for entity in result] == [1, 2]
+
+
+def test_v3_json_light_bound_function_response_uses_direct_entity_object(schema_v3):
+    connection = _StaticResponseConnection(pyodata.v2.service.ODataHttpResponse(
+        url=f"{URL_ROOT}/Documents(1)/GetPeerDocument(Mode='related')",
+        headers={'Content-type': 'application/json'},
+        status_code=200,
+        content=json.dumps({
+            'odata.metadata': f'{URL_ROOT}/$metadata#Documents/$entity',
+            'odata.type': 'V3Demo.Model.Document',
+            'Id': 2,
+            'Title': 'Peer draft',
+        }).encode('utf-8')))
+    service = _service_with_light_config(schema_v3, connection=connection, json_metadata='full')
+
+    result = service.entity_sets.Documents.get_entity(1).functions.GetPeerDocument.parameter('Mode', 'related').execute()
+
+    assert isinstance(result, pyodata.v3.service.EntityProxy)
+    assert result.Id == 2
+    assert result.Title == 'Peer draft'
 
 
 def test_v3_unbound_action_uses_post_and_json_request_shape(schema_v3):
@@ -639,6 +932,55 @@ def test_v3_batch_request_executes_verbose_json_read_and_bound_action(schema_v3)
     assert '{"Comment": "ship it"}' in connection.requests[0]['data']
 
 
+def test_v3_batch_request_accepts_json_light_and_verbose_fallback_subresponses(schema_v3):
+    response_body = (
+        b'--batch_v3\n'
+        b'Content-Type: application/http\n'
+        b'Content-Transfer-Encoding: binary\n'
+        b'\n'
+        b'HTTP/1.1 200 OK\n'
+        b'Content-Type: application/json\n'
+        b'\n'
+        b'{"odata.metadata": "http://odatapy.example.com/$metadata#Documents/$entity",'
+        b' "Id": 1, "Title": "Spec draft"}\n'
+        b'--batch_v3\n'
+        b'Content-Type: multipart/mixed; boundary=changeset_v3\n'
+        b'\n'
+        b'--changeset_v3\n'
+        b'Content-Type: application/http\n'
+        b'Content-Transfer-Encoding: binary\n'
+        b'\n'
+        b'HTTP/1.1 200 OK\n'
+        b'Content-Type: application/json;odata=verbose\n'
+        b'\n'
+        b'{"d": true}\n'
+        b'--changeset_v3--\n'
+        b'\n'
+        b'--batch_v3--')
+    connection = _StaticResponseConnection(pyodata.v2.service.ODataHttpResponse(
+        url=f'{URL_ROOT}/$batch',
+        headers={'Content-Type': 'multipart/mixed; boundary=batch_v3'},
+        status_code=202,
+        content=response_body))
+    service = _service_with_light_config(schema_v3, connection=connection)
+
+    batch = service.create_batch('v3')
+    changeset = service.create_changeset('v3')
+
+    batch.add_request(service.entity_sets.Documents.get_entity(1, encode_path=False))
+    changeset.add_request(
+        service.entity_sets.Documents.get_entity(1, encode_path=False).actions.Approve.parameter(
+            'Comment', 'ship it'))
+    batch.add_request(changeset)
+
+    result = batch.execute()
+
+    assert len(result) == 2
+    assert isinstance(result[0], pyodata.v3.service.EntityProxy)
+    assert result[0].Title == 'Spec draft'
+    assert result[1] == [True]
+
+
 def test_v3_media_stream_access_api_shape(service_v3):
     request = service_v3.entity_sets.Documents.get_entity(1).media_stream()
 
@@ -753,6 +1095,31 @@ def test_v3_get_entity_materializes_dynamic_properties_for_open_type(schema_v3):
     assert entity.DynamicTag == 'red'
 
 
+def test_v3_json_light_fullmetadata_open_type_does_not_cache_control_annotations(schema_v3):
+    connection = _StaticResponseConnection(pyodata.v2.service.ODataHttpResponse(
+        url=f'{URL_ROOT}/Documents(1)',
+        headers={'Content-type': 'application/json'},
+        status_code=200,
+        content=json.dumps({
+            'odata.metadata': f'{URL_ROOT}/$metadata#Documents/$entity',
+            'odata.type': 'V3Demo.Model.Document',
+            'odata.id': f'{URL_ROOT}/Documents(1)',
+            'Id': 1,
+            'Title': 'Spec draft',
+            'DynamicTag': 'red',
+            'DynamicTag@odata.type': 'Edm.String',
+            'Thumbnail@odata.mediaReadLink': f'{URL_ROOT}/Documents(1)/Thumbnail',
+        }).encode('utf-8')))
+    service = _service_with_light_config(schema_v3, connection=connection, json_metadata='full')
+
+    entity = service.entity_sets.Documents.get_entity(1).execute()
+
+    assert entity.DynamicTag == 'red'
+    assert 'odata.metadata' not in entity._cache  # pylint: disable=protected-access
+    assert 'DynamicTag@odata.type' not in entity._cache  # pylint: disable=protected-access
+    assert 'Thumbnail@odata.mediaReadLink' not in entity._cache  # pylint: disable=protected-access
+
+
 def test_v3_get_entities_materializes_dynamic_properties_for_open_type(schema_v3):
     connection = _StaticResponseConnection(pyodata.v2.service.ODataHttpResponse(
         url=f'{URL_ROOT}/Documents',
@@ -766,6 +1133,51 @@ def test_v3_get_entities_materializes_dynamic_properties_for_open_type(schema_v3
     assert len(entities) == 1
     assert isinstance(entities[0], pyodata.v3.service.EntityProxy)
     assert entities[0].DynamicTag == 'red'
+
+
+def test_v3_json_light_count_and_next_link_are_honored(schema_v3):
+    connection = _StaticResponseConnection(pyodata.v2.service.ODataHttpResponse(
+        url=f'{URL_ROOT}/Documents',
+        headers={'Content-type': 'application/json'},
+        status_code=200,
+        content=json.dumps({
+            'odata.metadata': f'{URL_ROOT}/$metadata#Documents',
+            'odata.count': '2',
+            'odata.nextLink': f'{URL_ROOT}/Documents?$skiptoken=opaque',
+            'value': [
+                {'Id': 1, 'Title': 'Spec draft'},
+                {'Id': 2, 'Title': 'Peer draft'},
+            ],
+        }).encode('utf-8')))
+    service = _service_with_light_config(schema_v3, connection=connection)
+
+    entities = service.entity_sets.Documents.get_entities().execute()
+
+    assert entities.total_count == 2
+    assert entities.next_url == f'{URL_ROOT}/Documents?$skiptoken=opaque'
+
+
+def test_v3_verbose_count_and_next_link_still_work(schema_v3):
+    connection = _StaticResponseConnection(pyodata.v2.service.ODataHttpResponse(
+        url=f'{URL_ROOT}/Documents',
+        headers={'Content-type': 'application/json'},
+        status_code=200,
+        content=json.dumps({
+            'd': {
+                '__count': '2',
+                '__next': f'{URL_ROOT}/Documents?$skiptoken=opaque',
+                'results': [
+                    {'Id': 1, 'Title': 'Spec draft'},
+                    {'Id': 2, 'Title': 'Peer draft'},
+                ],
+            },
+        }).encode('utf-8')))
+    service = pyodata.v3.service.Service(URL_ROOT, schema_v3, connection)
+
+    entities = service.entity_sets.Documents.get_entities().execute()
+
+    assert entities.total_count == 2
+    assert entities.next_url == f'{URL_ROOT}/Documents?$skiptoken=opaque'
 
 
 def test_v3_open_type_crud_allows_dynamic_properties(service_v3):
